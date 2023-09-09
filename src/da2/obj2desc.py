@@ -3,7 +3,7 @@ from typing import Generic, TypeVar, Type, Union
 
 from pydantic import BaseModel, parse_obj_as
 
-from da2.entity import Description
+from src.entity import Description
 from taoAsync.taoAsync import Association, Object
 
 

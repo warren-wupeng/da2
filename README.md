@@ -1,6 +1,9 @@
 # da2
 python DDD and EDA framework
 
+# install
+pip install da2
+
 # usage
 
 domain layer

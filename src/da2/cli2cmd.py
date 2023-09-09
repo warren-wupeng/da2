@@ -1,7 +1,7 @@
 
 from pydantic import BaseModel
 
-from da2.command import Command
+from src.command import Command
 from dataclasses import fields
 from pydantic.dataclasses import dataclass
 from typing import Generic, TypeVar

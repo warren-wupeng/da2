@@ -1,5 +1,5 @@
 
-from da2.entity import Identity
+from src.entity import Identity
 from taoAsync.objectType import ObjectType
 from taoAsync.objectTypeSequence import ObjectTypeSequence
 from utils.convertStrIdToInt import convertId
