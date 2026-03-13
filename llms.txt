@@ -49,8 +49,9 @@ bus.handle(CreateUser(name="Alice"))
 | Bootstrap | `Bootstrap` / `BootstrapAsync` | Wires handlers with dependency injection |
 | Container | `Container` | Simple DI container for registering and resolving dependencies |
 | EventSourcedEntity | `EventSourcedEntity[Identity]` | Aggregate whose state is derived from an event stream |
-| EventStore | `EventStore` / `InMemoryEventStore` | Append-only event persistence with optimistic concurrency |
-| EventSourcedRepository | `EventSourcedRepository[T]` | Load/save event-sourced entities via EventStore |
+| EventStore | `EventStore` / `EventStoreAsync` | Append-only event persistence with optimistic concurrency |
+| EventSourcedRepository | `EventSourcedRepository[T]` / `EventSourcedRepositoryAsync[T]` | Load/save event-sourced entities via EventStore |
+| Snapshot | `Snapshot` / `SnapshotStore` / `SnapshotStoreAsync` | Periodic state capture to avoid replaying all events |
 
 ## Public API (from da2 import ...)
 
@@ -66,8 +67,16 @@ Repository, RepositoryAsync      # repository.py, repository_async.py
 InMemoryRepository               # repository.py
 EventSourcedEntity               # event_sourced.py
 EventStore, InMemoryEventStore   # event_store.py
+EventStoreAsync                  # event_store_async.py
+InMemoryEventStoreAsync          # event_store_async.py
 StoredEvent                      # event_store.py
 EventSourcedRepository           # event_sourced_repository.py
+EventSourcedRepositoryAsync      # event_sourced_repository_async.py
+Snapshot                         # snapshot.py
+SnapshotStore                    # snapshot.py
+InMemorySnapshotStore            # snapshot.py
+SnapshotStoreAsync               # snapshot_async.py
+InMemorySnapshotStoreAsync       # snapshot_async.py
 Container                        # container.py
 EntityNotFound, ConcurrencyError # exceptions.py
 ```
@@ -249,6 +258,30 @@ data = event.to_dict()           # {"amount": 100}
 restored = MoneyDeposited.from_dict(data)  # MoneyDeposited(amount=100)
 ```
 
+### Snapshots
+
+Snapshots avoid replaying the full event history. Configure
+`snapshot_store` and `snapshot_interval` on the repository:
+
+```python
+from da2.snapshot import InMemorySnapshotStore
+
+snap_store = InMemorySnapshotStore()
+repo = EventSourcedRepository(
+    event_store=store,
+    entity_cls=BankAccount,
+    event_registry={...},
+    snapshot_store=snap_store,
+    snapshot_interval=100,   # auto-snapshot every 100 events
+)
+
+# After 100+ events, repo.get() loads snapshot + recent events only
+account = repo.get("acc-1")
+```
+
+Entity provides `take_snapshot()`, `from_snapshot()`, and overridable
+`_snapshot_state()` / `_restore_from_snapshot()`.
+
 ## Async Support
 
 All sync classes have async counterparts:
@@ -256,6 +289,9 @@ All sync classes have async counterparts:
 - `MessageBusAsync` (await bus.handle(...))
 - `RepositoryAsync[T]` (async get/add/update/delete)
 - `BootstrapAsync` (produces MessageBusAsync)
+- `EventStoreAsync` / `InMemoryEventStoreAsync`
+- `EventSourcedRepositoryAsync[T]`
+- `SnapshotStoreAsync` / `InMemorySnapshotStoreAsync`
 
 ## Install
 

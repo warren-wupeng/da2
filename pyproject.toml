@@ -1,6 +1,6 @@
 [project]
 name = "da2"
-version = "0.3.0"
+version = "0.3.1"
 description = "Python DDD and Event-Driven Architecture framework with Event Sourcing"
 authors = [
     {name = "warren-wupeng", email = "warren.wu@visionwx.com"},

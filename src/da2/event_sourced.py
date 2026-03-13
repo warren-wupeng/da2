@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any, Generic, TypeVar
 
 from .event import Event
+from .snapshot import Snapshot
 
 Identity = TypeVar("Identity")
 
@@ -109,6 +110,58 @@ class EventSourcedEntity(Generic[Identity]):
         """Apply an event and record it as pending (for new state changes)."""
         self._apply(event)
         self._pending_events.append(event)
+
+    def take_snapshot(self) -> Snapshot:
+        """Capture current state as a snapshot.
+
+        Override ``_snapshot_state()`` to control which attributes are saved.
+        """
+        return Snapshot(
+            aggregate_id=self._identity,
+            version=self._version,
+            state=self._snapshot_state(),
+        )
+
+    def _snapshot_state(self) -> dict:
+        """Return a dict representing the current state for snapshotting.
+
+        Default: all public instance attributes (excluding underscore-prefixed).
+        Override to customise.
+        """
+        return {
+            k: v for k, v in self.__dict__.items()
+            if not k.startswith("_")
+        }
+
+    def _restore_from_snapshot(self, state: dict) -> None:
+        """Restore state from a snapshot dict.
+
+        Default: ``setattr`` for each key. Override to customise.
+        """
+        for k, v in state.items():
+            setattr(self, k, v)
+
+    @classmethod
+    def from_snapshot(
+        cls,
+        identity: Any,
+        snapshot: Snapshot,
+        events_after: list[Event] | None = None,
+    ) -> "EventSourcedEntity":
+        """Reconstruct from a snapshot + optional subsequent events.
+
+        Example::
+
+            snap = account.take_snapshot()  # version=50
+            # later...
+            account = BankAccount.from_snapshot("acc-1", snap, new_events)
+        """
+        entity = cls(identity)
+        entity._restore_from_snapshot(snapshot.state)
+        entity._version = snapshot.version
+        for event in (events_after or []):
+            entity._apply(event)
+        return entity
 
     @classmethod
     def from_events(

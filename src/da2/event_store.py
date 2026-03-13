@@ -78,6 +78,16 @@ class EventStore(abc.ABC):
         """Load all stored events for *aggregate_id*, ordered by version."""
         raise NotImplementedError
 
+    def load_since(self, aggregate_id: Any, after_version: int) -> list[StoredEvent]:
+        """Load events with version > *after_version*.
+
+        Default implementation filters ``load()``; override for efficiency.
+        """
+        return [
+            se for se in self.load(aggregate_id)
+            if se.version > after_version
+        ]
+
 
 class InMemoryEventStore(EventStore):
     """Dict-backed event store for testing and prototyping.
@@ -128,3 +138,7 @@ class InMemoryEventStore(EventStore):
 
     def load(self, aggregate_id: Any) -> list[StoredEvent]:
         return list(self._streams.get(aggregate_id, []))
+
+    def load_since(self, aggregate_id: Any, after_version: int) -> list[StoredEvent]:
+        stream = self._streams.get(aggregate_id, [])
+        return [se for se in stream if se.version > after_version]

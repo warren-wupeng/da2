@@ -49,8 +49,12 @@ from .repository_async import RepositoryAsync
 from .container import Container
 from .exceptions import EntityNotFound, ConcurrencyError
 from .event_store import EventStore, InMemoryEventStore, StoredEvent
+from .event_store_async import EventStoreAsync, InMemoryEventStoreAsync
 from .event_sourced import EventSourcedEntity
 from .event_sourced_repository import EventSourcedRepository
+from .event_sourced_repository_async import EventSourcedRepositoryAsync
+from .snapshot import Snapshot, SnapshotStore, InMemorySnapshotStore
+from .snapshot_async import SnapshotStoreAsync, InMemorySnapshotStoreAsync
 
 __all__ = [
     # Core
@@ -77,8 +81,17 @@ __all__ = [
     "EventSourcedEntity",
     "EventStore",
     "InMemoryEventStore",
+    "EventStoreAsync",
+    "InMemoryEventStoreAsync",
     "StoredEvent",
     "EventSourcedRepository",
+    "EventSourcedRepositoryAsync",
+    # Snapshot
+    "Snapshot",
+    "SnapshotStore",
+    "InMemorySnapshotStore",
+    "SnapshotStoreAsync",
+    "InMemorySnapshotStoreAsync",
     # DI
     "Container",
     # Exceptions
@@ -86,7 +99,7 @@ __all__ = [
     "ConcurrencyError",
 ]
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 
 def bootstrap(
