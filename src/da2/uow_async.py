@@ -1,23 +1,24 @@
 import abc
+import logging
 
-from utils.logger import logger
 from .entity import Entity
+
+logger = logging.getLogger(__name__)
 
 
 class UnitOfWorkAsync(abc.ABC):
 
-    seen: dict[int, Entity]
+    seen: dict
 
     async def __aenter__(self):
-        self.seen = dict()
+        self.seen = {}
         await self._enter()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         try:
             if exc_type:
-                logger.error(f"{exc_type=}")
-                logger.error("Exception occurred, rolling back")
+                logger.error("Exception occurred (%s), rolling back", exc_type)
                 await self.rollback()
         finally:
             await self._exit(exc_type, exc_val, exc_tb)
@@ -25,12 +26,11 @@ class UnitOfWorkAsync(abc.ABC):
     async def commit(self):
         await self._commit()
 
-    def addSeen(self, entity: Entity):
+    def add_seen(self, entity: Entity):
         self.seen[entity.identity] = entity
 
     def collect_new_events(self):
-        # auth
-        for _, entity in self.seen.items():
+        for entity in self.seen.values():
             while entity.events:
                 yield entity.events.pop(0)
 

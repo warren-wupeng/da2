@@ -1,4 +1,2 @@
-
-
 class Command:
-    result = None
+    pass

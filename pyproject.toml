@@ -1,37 +1,39 @@
 [tool.poetry]
 name = "da2"
-version = "0.1.0"
-description = ""
+version = "0.2.0"
+description = "Python DDD and Event-Driven Architecture framework"
 authors = [
-"warren-wupeng <warren.wu@visionwx.com>",
+    "warren-wupeng <warren.wu@visionwx.com>",
 ]
 readme = "README.md"
+license = "MIT"
+keywords = ["ddd", "domain-driven-design", "event-driven", "cqrs", "python"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
+]
 packages = [
-{include = "da2", from = "src"},
+    {include = "da2", from = "src"},
 ]
 
 [tool.poetry.dependencies]
 python = "^3.11"
+
+[tool.poetry.extras]
+redis = ["redis"]
+
+[tool.poetry.group.dev.dependencies]
 redis = "^5.0.0"
-loguru = ">=0.7.0"
-pydantic = "^2.3.0"
-tenacity = "^8.2.3"
-
-
-
-[tool.poetry.scripts]
-da2 = "main:main"
 
 [tool.poetry.group.tests.dependencies]
 pytest = "^7.4.1"
-httpx = "^0.24.1"
 pytest-asyncio = "^0.21.1"
 pytest-cov = "^4.1.0"
 
-[tool.coverage.run]
-concurrency = "greenlet"
-branch = true
-fail_under = 100
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 [build-system]
 requires = ["poetry-core"]

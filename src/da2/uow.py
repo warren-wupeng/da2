@@ -1,30 +1,29 @@
 import abc
+
 from .entity import Entity
 
 
 class UnitOfWork(abc.ABC):
 
-    seen: dict[int, Entity]
+    seen: dict
 
     def __enter__(self):
-        self.seen = dict()
+        self.seen = {}
         self._enter()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        # print(exc_type)
         if exc_type:
             self.rollback()
 
     def commit(self):
         self._commit()
 
-    def addSeen(self, entity: Entity):
+    def add_seen(self, entity: Entity):
         self.seen[entity.identity] = entity
 
     def collect_new_events(self):
-        # auth
-        for _, entity in self.seen.items():
+        for entity in self.seen.values():
             while entity.events:
                 yield entity.events.pop(0)
 
