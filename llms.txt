@@ -42,12 +42,15 @@ bus.handle(CreateUser(name="Alice"))
 |---------|-------|---------|
 | Entity | `Entity[Identity, Description]` | Domain object with identity, description, timestamps, and domain events |
 | Command | `Command` | Intention to change the system (one handler) |
-| Event | `Event` | Something that happened (zero or more handlers) |
+| Event | `Event` | Something that happened (zero or more handlers); supports `to_dict()` / `from_dict()` |
 | Unit of Work | `UnitOfWork` / `UnitOfWorkAsync` | Transaction boundary; tracks seen entities and collects events |
 | Message Bus | `MessageBus` / `MessageBusAsync` | Dispatches commands and events to their handlers |
-| Repository | `Repository[T]` / `RepositoryAsync[T]` | Persistence abstraction with get/add/update/delete |
+| Repository | `Repository[T]` / `RepositoryAsync[T]` | Persistence abstraction with get/add/update/delete (state-based) |
 | Bootstrap | `Bootstrap` / `BootstrapAsync` | Wires handlers with dependency injection |
 | Container | `Container` | Simple DI container for registering and resolving dependencies |
+| EventSourcedEntity | `EventSourcedEntity[Identity]` | Aggregate whose state is derived from an event stream |
+| EventStore | `EventStore` / `InMemoryEventStore` | Append-only event persistence with optimistic concurrency |
+| EventSourcedRepository | `EventSourcedRepository[T]` | Load/save event-sourced entities via EventStore |
 
 ## Public API (from da2 import ...)
 
@@ -61,8 +64,12 @@ Bootstrap, BootstrapAsync        # bootstrap.py, bootstrap_async.py
 bootstrap                        # __init__.py (shortcut)
 Repository, RepositoryAsync      # repository.py, repository_async.py
 InMemoryRepository               # repository.py
+EventSourcedEntity               # event_sourced.py
+EventStore, InMemoryEventStore   # event_store.py
+StoredEvent                      # event_store.py
+EventSourcedRepository           # event_sourced_repository.py
 Container                        # container.py
-EntityNotFound                   # exceptions.py
+EntityNotFound, ConcurrencyError # exceptions.py
 ```
 
 ## Architecture Pattern
@@ -149,6 +156,97 @@ class SqlUoW(UnitOfWork):
 
     def rollback(self):
         self.session.rollback()
+```
+
+## Event Sourcing
+
+da2 supports two persistence models:
+
+1. **State-based** (Entity + Repository) -- store current state directly
+2. **Event-sourced** (EventSourcedEntity + EventStore) -- store events, derive state
+
+### EventSourcedEntity Pattern
+
+State is built by replaying events through `_when_<EventClassName>` methods:
+
+```python
+from da2 import Event
+from da2.event_sourced import EventSourcedEntity
+
+class AccountOpened(Event):
+    def __init__(self, owner: str):
+        self.owner = owner
+
+class MoneyDeposited(Event):
+    def __init__(self, amount: float):
+        self.amount = amount
+
+class BankAccount(EventSourcedEntity[str]):
+    def __init__(self, identity: str):
+        super().__init__(identity)
+        self.owner = ""
+        self.balance = 0.0
+
+    @classmethod
+    def open(cls, account_id: str, owner: str) -> "BankAccount":
+        account = cls(account_id)
+        account._apply_and_record(AccountOpened(owner=owner))
+        return account
+
+    def deposit(self, amount: float):
+        self._apply_and_record(MoneyDeposited(amount=amount))
+
+    def _when_AccountOpened(self, event):
+        self.owner = event.owner
+
+    def _when_MoneyDeposited(self, event):
+        self.balance += event.amount
+```
+
+### EventStore + EventSourcedRepository
+
+```python
+from da2.event_store import InMemoryEventStore
+from da2.event_sourced_repository import EventSourcedRepository
+
+store = InMemoryEventStore()
+repo = EventSourcedRepository(
+    event_store=store,
+    entity_cls=BankAccount,
+    event_registry={"AccountOpened": AccountOpened, "MoneyDeposited": MoneyDeposited},
+)
+
+account = BankAccount.open("acc-1", "Alice")
+account.deposit(100)
+repo.save(account)          # persists 2 events to store
+
+loaded = repo.get("acc-1")  # replays events, reconstructs state
+assert loaded.balance == 100.0
+```
+
+### Optimistic Concurrency
+
+EventStore uses version-based concurrency control. If two processes
+read the same aggregate and both try to save, the second save raises
+`ConcurrencyError`:
+
+```python
+reader_a = repo.get("acc-1")
+reader_b = repo.get("acc-1")
+reader_a.deposit(50)
+repo.save(reader_a)    # OK
+reader_b.deposit(100)
+repo.save(reader_b)    # raises ConcurrencyError
+```
+
+### Event Serialization
+
+Events support `to_dict()` / `from_dict()` for storage:
+
+```python
+event = MoneyDeposited(amount=100)
+data = event.to_dict()           # {"amount": 100}
+restored = MoneyDeposited.from_dict(data)  # MoneyDeposited(amount=100)
 ```
 
 ## Async Support

@@ -47,7 +47,10 @@ from .bootstrap_async import BootstrapAsync
 from .repository import Repository, InMemoryRepository
 from .repository_async import RepositoryAsync
 from .container import Container
-from .exceptions import EntityNotFound
+from .exceptions import EntityNotFound, ConcurrencyError
+from .event_store import EventStore, InMemoryEventStore, StoredEvent
+from .event_sourced import EventSourcedEntity
+from .event_sourced_repository import EventSourcedRepository
 
 __all__ = [
     # Core
@@ -66,17 +69,24 @@ __all__ = [
     "Bootstrap",
     "BootstrapAsync",
     "bootstrap",
-    # Repository
+    # Repository (state-based)
     "Repository",
     "RepositoryAsync",
     "InMemoryRepository",
+    # Event Sourcing
+    "EventSourcedEntity",
+    "EventStore",
+    "InMemoryEventStore",
+    "StoredEvent",
+    "EventSourcedRepository",
     # DI
     "Container",
     # Exceptions
     "EntityNotFound",
+    "ConcurrencyError",
 ]
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 
 def bootstrap(

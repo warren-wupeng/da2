@@ -1,14 +1,14 @@
 [project]
 name = "da2"
-version = "0.2.0"
-description = "Python DDD and Event-Driven Architecture framework"
+version = "0.3.0"
+description = "Python DDD and Event-Driven Architecture framework with Event Sourcing"
 authors = [
     {name = "warren-wupeng", email = "warren.wu@visionwx.com"},
 ]
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
-keywords = ["ddd", "domain-driven-design", "event-driven", "cqrs", "python"]
+keywords = ["ddd", "domain-driven-design", "event-driven", "cqrs", "event-sourcing", "python"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
