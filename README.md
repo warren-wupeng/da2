@@ -1,8 +1,8 @@
 # da2
 
-Python DDD and Event-Driven Architecture framework.
+Python DDD and Event-Driven Architecture framework with Event Sourcing.
 
-Lightweight building blocks for Domain-Driven Design: Entity, Repository, Unit of Work, Command/Event, MessageBus, and Bootstrap DI.
+Lightweight building blocks for Domain-Driven Design: Entity, Repository, Unit of Work, Command/Event, MessageBus, Bootstrap DI, Event Sourcing, and Snapshots.
 
 ## Install
 
@@ -12,88 +12,180 @@ pip install da2
 
 ## Quick Start
 
-### 1. Define your domain
+### One-liner bootstrap
 
 ```python
-from pydantic import BaseModel
-from da2 import Entity, Command, Event
+from da2 import Entity, Command, Event, UnitOfWork, bootstrap
 
-# Value object
-class UserDesc(BaseModel):
-    name: str
-    email: str
+class CreateUser(Command):
+    def __init__(self, name: str):
+        self.name = name
 
-# Entity
-class User(Entity[str, UserDesc]):
-    def rename(self, new_name: str):
-        self._desc = self.desc.model_copy(update={"name": new_name})
-        self.raise_event(UserRenamed(user_id=self.identity, new_name=new_name))
+class UserCreated(Event):
+    def __init__(self, name: str):
+        self.name = name
 
-# Events
-class UserRenamed(Event):
-    def __init__(self, user_id: str, new_name: str):
+class User(Entity[str, dict]):
+    pass
+
+class MyUoW(UnitOfWork):
+    def _enter(self): pass
+    def _commit(self): pass
+    def rollback(self): pass
+
+def handle_create(cmd: CreateUser, uow):
+    print(f"Created {cmd.name}")
+
+bus = bootstrap(
+    uow=MyUoW(),
+    commands={CreateUser: handle_create},
+    events={UserCreated: [lambda e: print(f"Welcome {e.name}")]},
+)
+bus.handle(CreateUser(name="Alice"))
+```
+
+### Full example with Repository
+
+```python
+from da2 import Entity, Command, Event, UnitOfWork, InMemoryRepository, Bootstrap
+
+class UserCreated(Event):
+    def __init__(self, user_id: str):
         self.user_id = user_id
-        self.new_name = new_name
 
-# Commands
 class CreateUser(Command):
     def __init__(self, name: str, email: str):
         self.name = name
         self.email = email
-```
 
-### 2. Set up Repository and Unit of Work
+class User(Entity[str, dict]):
+    @classmethod
+    def create(cls, email: str, name: str) -> "User":
+        user = cls(identity=email, desc={"name": name, "email": email})
+        user.raise_event(UserCreated(user_id=email))
+        return user
 
-```python
-from da2 import UnitOfWork, InMemoryRepository
-
-class UserRepo(InMemoryRepository[User]):
-    pass
-
-class AppUnitOfWork(UnitOfWork):
+class AppUoW(UnitOfWork):
     def _enter(self):
-        self.users = UserRepo(add_seen=self.add_seen)
-
+        self.users = InMemoryRepository[User](add_seen=self.add_seen)
     def _commit(self):
-        pass  # persist changes
-
+        pass
     def rollback(self):
         pass
-```
 
-### 3. Write command handlers
+def handle_create_user(cmd: CreateUser, uow: AppUoW):
+    user = User.create(cmd.email, cmd.name)
+    uow.users.add(user)
 
-```python
-def handle_create_user(cmd: CreateUser, uow: AppUnitOfWork):
-    with uow:
-        user = User(
-            identity=cmd.email,
-            desc=UserDesc(name=cmd.name, email=cmd.email),
-        )
-        uow.users.add(user)
-        uow.commit()
-```
-
-### 4. Wire it up with Bootstrap
-
-```python
-from da2 import Bootstrap
-
-def send_welcome_email(event: UserRenamed):
-    print(f"User {event.user_id} renamed to {event.new_name}")
+def on_user_created(event: UserCreated):
+    print(f"Send welcome email to {event.user_id}")
 
 bootstrap = Bootstrap(
-    uow=AppUnitOfWork(),
+    uow=AppUoW(),
     command_handlers={CreateUser: handle_create_user},
-    event_handlers={UserRenamed: [send_welcome_email]},
+    event_handlers={UserCreated: [on_user_created]},
 )
 bus = bootstrap.create_message_bus()
-
-# Dispatch a command
+bus.uow.seen = {}
 bus.handle(CreateUser(name="Alice", email="alice@example.com"))
 ```
 
 Bootstrap auto-injects `uow` (and any extra dependencies) into handler functions by matching parameter names.
+
+## Event Sourcing
+
+da2 supports two persistence models:
+
+1. **State-based** (Entity + Repository) -- store current state directly
+2. **Event-sourced** (EventSourcedEntity + EventStore) -- store events, derive state
+
+### Define an event-sourced aggregate
+
+```python
+from da2 import Event
+from da2.event_sourced import EventSourcedEntity
+
+class AccountOpened(Event):
+    def __init__(self, owner: str):
+        self.owner = owner
+
+class MoneyDeposited(Event):
+    def __init__(self, amount: float):
+        self.amount = amount
+
+class BankAccount(EventSourcedEntity[str]):
+    def __init__(self, identity: str):
+        super().__init__(identity)
+        self.owner = ""
+        self.balance = 0.0
+
+    @classmethod
+    def open(cls, account_id: str, owner: str) -> "BankAccount":
+        account = cls(account_id)
+        account._apply_and_record(AccountOpened(owner=owner))
+        return account
+
+    def deposit(self, amount: float):
+        self._apply_and_record(MoneyDeposited(amount=amount))
+
+    def _when_AccountOpened(self, event):
+        self.owner = event.owner
+
+    def _when_MoneyDeposited(self, event):
+        self.balance += event.amount
+```
+
+State is built by replaying events through `_when_<EventClassName>` methods.
+
+### Persist and load via EventStore
+
+```python
+from da2.event_store import InMemoryEventStore
+from da2.event_sourced_repository import EventSourcedRepository
+
+store = InMemoryEventStore()
+repo = EventSourcedRepository(
+    event_store=store,
+    entity_cls=BankAccount,
+    event_registry={"AccountOpened": AccountOpened, "MoneyDeposited": MoneyDeposited},
+)
+
+account = BankAccount.open("acc-1", "Alice")
+account.deposit(100)
+repo.save(account)          # persists 2 events to store
+
+loaded = repo.get("acc-1")  # replays events, reconstructs state
+assert loaded.balance == 100.0
+```
+
+### Optimistic concurrency
+
+```python
+reader_a = repo.get("acc-1")
+reader_b = repo.get("acc-1")
+reader_a.deposit(50)
+repo.save(reader_a)    # OK
+reader_b.deposit(100)
+repo.save(reader_b)    # raises ConcurrencyError
+```
+
+### Snapshots
+
+Snapshots avoid replaying the full event history:
+
+```python
+from da2.snapshot import InMemorySnapshotStore
+
+repo = EventSourcedRepository(
+    event_store=store,
+    entity_cls=BankAccount,
+    event_registry={...},
+    snapshot_store=InMemorySnapshotStore(),
+    snapshot_interval=100,   # auto-snapshot every 100 events
+)
+
+# After 100+ events, repo.get() loads snapshot + recent events only
+```
 
 ## Async Support
 
@@ -117,11 +209,19 @@ bus = bootstrap.create_message_bus()
 result = await bus.handle(CreateUser(name="Bob", email="bob@example.com"))
 ```
 
-`MessageBusAsync` also supports lifecycle hooks:
+Event Sourcing also has full async support:
+
+| Sync | Async |
+|------|-------|
+| `EventStore` | `EventStoreAsync` |
+| `InMemoryEventStore` | `InMemoryEventStoreAsync` |
+| `EventSourcedRepository` | `EventSourcedRepositoryAsync` |
+| `SnapshotStore` | `SnapshotStoreAsync` |
+| `InMemorySnapshotStore` | `InMemorySnapshotStoreAsync` |
+
+`MessageBusAsync` supports lifecycle hooks:
 
 ```python
-bus.on_before_handle_event(lambda cmd, event: print(f"{cmd} -> {event}"))
-
 @bus.on_bus_event("handle_success")
 def log_success(event_type, message, handler_name, reason):
     print(f"OK: {handler_name}")
@@ -135,27 +235,37 @@ def log_success(event_type, message, handler_name, reason):
 |-------|-------------|
 | `Entity[Identity, Description]` | Base class for domain entities with identity, description, and event list |
 | `Command` | Base class for commands (write intent) |
-| `Event` | Base class for domain events |
+| `Event` | Base class for domain events; supports `to_dict()` / `from_dict()` |
 
 ### Infrastructure
 
 | Class | Description |
 |-------|-------------|
-| `UnitOfWork` | Sync context manager, tracks seen entities, collects events |
-| `UnitOfWorkAsync` | Async context manager version |
-| `Repository[T]` | Abstract sync repository (get/add/update/delete) |
-| `RepositoryAsync[T]` | Abstract async repository |
+| `UnitOfWork` / `UnitOfWorkAsync` | Transaction boundary, tracks entities, collects events |
+| `Repository[T]` / `RepositoryAsync[T]` | Abstract persistence (get/add/update/delete) |
 | `InMemoryRepository[T]` | Dict-backed repository for testing |
 
 ### Application
 
 | Class | Description |
 |-------|-------------|
-| `MessageBus` | Sync command/event dispatcher with event chain propagation |
-| `MessageBusAsync` | Async version with lifecycle hooks |
-| `Bootstrap` | Wires handlers with DI, produces MessageBus |
-| `BootstrapAsync` | Async version |
+| `MessageBus` / `MessageBusAsync` | Command/event dispatcher with event chain propagation |
+| `Bootstrap` / `BootstrapAsync` | Wires handlers with DI, produces MessageBus |
 | `Container` | Standalone DI container with recursive resolution |
+
+### Event Sourcing
+
+| Class | Description |
+|-------|-------------|
+| `EventSourcedEntity[Identity]` | Aggregate whose state is derived from events |
+| `EventStore` / `EventStoreAsync` | Append-only event persistence with optimistic concurrency |
+| `InMemoryEventStore` / `InMemoryEventStoreAsync` | Dict-backed event store for testing |
+| `StoredEvent` | Immutable envelope for a persisted event |
+| `EventSourcedRepository` / `EventSourcedRepositoryAsync` | Load/save event-sourced entities |
+| `Snapshot` | Captured state at a point in time |
+| `SnapshotStore` / `SnapshotStoreAsync` | Snapshot persistence |
+| `InMemorySnapshotStore` / `InMemorySnapshotStoreAsync` | Dict-backed snapshot store for testing |
+| `ConcurrencyError` | Raised on version conflict |
 
 ## Architecture
 
@@ -167,6 +277,16 @@ Command --> MessageBus --> CommandHandler --> Entity.raise_event()
                 +-- EventHandler(s) --> side effects / more events
                         |
                 UnitOfWork.collect_new_events() feeds back into queue
+```
+
+Event Sourcing flow:
+
+```
+BankAccount._apply_and_record(MoneyDeposited(100))
+    --> _when_MoneyDeposited(event)   # mutates state
+    --> event added to pending_events
+    --> repo.save(account)            # appends to EventStore
+    --> repo.get("acc-1")             # replays events (or snapshot + delta)
 ```
 
 ## License
