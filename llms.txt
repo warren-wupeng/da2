@@ -1,0 +1,172 @@
+# da2 -- Python DDD & Event-Driven Architecture Framework
+
+> da2 helps you build domain-driven Python applications with commands,
+> events, entities, repositories, and a message bus -- all wired together
+> via a simple bootstrap function.
+
+## Quick Start
+
+```python
+from da2 import Entity, Command, Event, UnitOfWork, bootstrap
+
+class CreateUser(Command):
+    def __init__(self, name: str):
+        self.name = name
+
+class UserCreated(Event):
+    def __init__(self, name: str):
+        self.name = name
+
+class User(Entity[str, dict]):
+    pass
+
+class MyUoW(UnitOfWork):
+    def _enter(self): pass
+    def _commit(self): pass
+    def rollback(self): pass
+
+def handle_create(cmd: CreateUser, uow):
+    print(f"Created {cmd.name}")
+
+bus = bootstrap(
+    uow=MyUoW(),
+    commands={CreateUser: handle_create},
+    events={},
+)
+bus.handle(CreateUser(name="Alice"))
+```
+
+## Core Concepts
+
+| Concept | Class | Purpose |
+|---------|-------|---------|
+| Entity | `Entity[Identity, Description]` | Domain object with identity, description, timestamps, and domain events |
+| Command | `Command` | Intention to change the system (one handler) |
+| Event | `Event` | Something that happened (zero or more handlers) |
+| Unit of Work | `UnitOfWork` / `UnitOfWorkAsync` | Transaction boundary; tracks seen entities and collects events |
+| Message Bus | `MessageBus` / `MessageBusAsync` | Dispatches commands and events to their handlers |
+| Repository | `Repository[T]` / `RepositoryAsync[T]` | Persistence abstraction with get/add/update/delete |
+| Bootstrap | `Bootstrap` / `BootstrapAsync` | Wires handlers with dependency injection |
+| Container | `Container` | Simple DI container for registering and resolving dependencies |
+
+## Public API (from da2 import ...)
+
+```
+Entity, Identity, Description    # entity.py
+Command                          # command.py
+Event                            # event.py
+UnitOfWork, UnitOfWorkAsync      # uow.py, uow_async.py
+MessageBus, MessageBusAsync      # message_bus.py, message_bus_async.py
+Bootstrap, BootstrapAsync        # bootstrap.py, bootstrap_async.py
+bootstrap                        # __init__.py (shortcut)
+Repository, RepositoryAsync      # repository.py, repository_async.py
+InMemoryRepository               # repository.py
+Container                        # container.py
+EntityNotFound                   # exceptions.py
+```
+
+## Architecture Pattern
+
+```
+Command --> MessageBus --> CommandHandler --> UnitOfWork
+                |                               |
+                |                          Entity.raise_event()
+                |                               |
+                +--- collect_new_events() <-----+
+                |
+            EventHandler(s)
+```
+
+1. A Command enters the MessageBus.
+2. The bus finds the single registered handler and calls it.
+3. The handler uses UnitOfWork to persist changes via a Repository.
+4. Entities raise domain Events during business logic.
+5. UnitOfWork.collect_new_events() yields those events.
+6. The bus dispatches each Event to all registered EventHandlers.
+7. Events can trigger more events (chain propagation).
+
+## Dependency Injection
+
+Bootstrap inspects handler function signatures and auto-injects
+matching dependencies by parameter name.
+
+```python
+# The "uow" parameter is injected automatically
+def handle_create_user(cmd: CreateUser, uow: UnitOfWork):
+    ...
+
+bus = Bootstrap(
+    uow=my_uow,
+    command_handlers={CreateUser: handle_create_user},
+    event_handlers={},
+    dependencies={"email_service": email_svc},  # extra deps
+).create_message_bus()
+```
+
+## Entity Pattern
+
+```python
+from da2 import Entity, Event
+
+class UserCreated(Event):
+    def __init__(self, user_id: str):
+        self.user_id = user_id
+
+class User(Entity[str, dict]):
+    @classmethod
+    def create(cls, user_id: str, name: str) -> "User":
+        user = cls(identity=user_id, desc={"name": name})
+        user.raise_event(UserCreated(user_id=user_id))
+        return user
+```
+
+## Repository Pattern
+
+```python
+from da2 import Repository, Entity
+
+class UserRepo(Repository[User]):
+    def get(self, identity: str) -> User: ...
+    def add(self, entity: User) -> None: ...
+    def update(self, entity: User) -> None: ...
+    def delete(self, identity: str) -> None: ...
+```
+
+For testing, use `InMemoryRepository[T]` which stores entities in a dict.
+
+## UnitOfWork Pattern
+
+```python
+from da2 import UnitOfWork
+
+class SqlUoW(UnitOfWork):
+    def _enter(self):
+        self.session = create_session()
+        self.users = UserRepo(session=self.session, add_seen=self.add_seen)
+
+    def _commit(self):
+        self.session.commit()
+
+    def rollback(self):
+        self.session.rollback()
+```
+
+## Async Support
+
+All sync classes have async counterparts:
+- `UnitOfWorkAsync` (async context manager)
+- `MessageBusAsync` (await bus.handle(...))
+- `RepositoryAsync[T]` (async get/add/update/delete)
+- `BootstrapAsync` (produces MessageBusAsync)
+
+## Install
+
+```
+pip install da2
+```
+
+## Links
+
+- PyPI: https://pypi.org/project/da2/
+- GitHub: https://github.com/warren-wupeng/da2
+- License: MIT

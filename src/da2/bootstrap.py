@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import inspect
-from typing import Type, Callable
+from typing import Any, Type, Callable
 
 from .command import Command
 from .event import Event
@@ -8,20 +10,51 @@ from .uow import UnitOfWork
 
 
 class Bootstrap:
+    """Wire command/event handlers with dependency injection, produce a MessageBus.
+
+    Bootstrap inspects handler function signatures and auto-injects
+    matching dependencies (by parameter name). ``uow`` is always available.
+
+    Example::
+
+        from da2 import Command, Event, UnitOfWork, Bootstrap
+
+        class CreateUser(Command):
+            def __init__(self, name: str):
+                self.name = name
+
+        class FakeUoW(UnitOfWork):
+            def _enter(self): pass
+            def _commit(self): pass
+            def rollback(self): pass
+
+        def handle_create_user(cmd: CreateUser, uow: UnitOfWork):
+            print(f"Creating {cmd.name}")
+
+        bootstrap = Bootstrap(
+            uow=FakeUoW(),
+            command_handlers={CreateUser: handle_create_user},
+            event_handlers={},
+        )
+        bus = bootstrap.create_message_bus()
+        bus.uow.seen = {}
+        bus.handle(CreateUser(name="Alice"))
+    """
 
     def __init__(
         self,
         uow: UnitOfWork,
-        event_handlers: dict[Type[Event], list[Callable]],
-        command_handlers: dict[Type[Command], Callable],
-        dependencies: dict[str, object] | None = None,
-    ):
-        self._dependencies = {"uow": uow} | (dependencies or {})
+        event_handlers: dict[Type[Event], list[Callable[..., Any]]],
+        command_handlers: dict[Type[Command], Callable[..., Any]],
+        dependencies: dict[str, Any] | None = None,
+    ) -> None:
+        self._dependencies: dict[str, Any] = {"uow": uow} | (dependencies or {})
         self._event_handlers = event_handlers
         self._command_handlers = command_handlers
         self._uow = uow
 
     def create_message_bus(self) -> MessageBus:
+        """Build a MessageBus with dependency-injected handlers."""
         injected_event_handlers = {
             event_type: [
                 self._inject_dependencies(handler, self._dependencies)
@@ -40,7 +73,10 @@ class Bootstrap:
         )
 
     @staticmethod
-    def _inject_dependencies(handler, dependencies):
+    def _inject_dependencies(
+        handler: Callable[..., Any],
+        dependencies: dict[str, Any],
+    ) -> Callable[..., Any]:
         params = inspect.signature(handler).parameters
         deps = {
             name: dep
@@ -48,7 +84,7 @@ class Bootstrap:
             if name in params
         }
 
-        def injected(message):
+        def injected(message: Any) -> Any:
             return handler(message, **deps)
 
         injected.__name__ = getattr(handler, "__name__", repr(handler))
