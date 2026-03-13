@@ -1,12 +1,13 @@
-[tool.poetry]
+[project]
 name = "da2"
 version = "0.2.0"
 description = "Python DDD and Event-Driven Architecture framework"
 authors = [
-    "warren-wupeng <warren.wu@visionwx.com>",
+    {name = "warren-wupeng", email = "warren.wu@visionwx.com"},
 ]
 readme = "README.md"
 license = "MIT"
+requires-python = ">=3.11"
 keywords = ["ddd", "domain-driven-design", "event-driven", "cqrs", "python"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -14,27 +15,25 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Application Frameworks",
     "Typing :: Typed",
 ]
-packages = [
-    {include = "da2", from = "src"},
+dependencies = []
+
+[project.optional-dependencies]
+redis = ["redis>=5.0.0"]
+
+[dependency-groups]
+dev = [
+    "redis>=5.0.0",
+    "pytest>=7.4.1",
+    "pytest-asyncio>=0.21.1",
+    "pytest-cov>=4.1.0",
 ]
-
-[tool.poetry.dependencies]
-python = "^3.11"
-
-[tool.poetry.extras]
-redis = ["redis"]
-
-[tool.poetry.group.dev.dependencies]
-redis = "^5.0.0"
-
-[tool.poetry.group.tests.dependencies]
-pytest = "^7.4.1"
-pytest-asyncio = "^0.21.1"
-pytest-cov = "^4.1.0"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/da2"]
