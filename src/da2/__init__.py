@@ -59,6 +59,8 @@ from .projection import Projection
 from .projection_async import ProjectionAsync
 from .process_manager import ProcessManager
 from .process_manager_async import ProcessManagerAsync
+from .policy import Policy
+from .policy_async import PolicyAsync
 
 __all__ = [
     # Core
@@ -102,6 +104,9 @@ __all__ = [
     # Process Manager
     "ProcessManager",
     "ProcessManagerAsync",
+    # Policy
+    "Policy",
+    "PolicyAsync",
     # DI
     "Container",
     # Exceptions
@@ -109,7 +114,7 @@ __all__ = [
     "ConcurrencyError",
 ]
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 
 def bootstrap(

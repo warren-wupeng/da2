@@ -54,6 +54,7 @@ bus.handle(CreateUser(name="Alice"))
 | Snapshot | `Snapshot` / `SnapshotStore` / `SnapshotStoreAsync` | Periodic state capture to avoid replaying all events |
 | Projection | `Projection` / `ProjectionAsync` | CQRS read model built by applying/replaying events |
 | Process Manager | `ProcessManager` / `ProcessManagerAsync` | Orchestrates multi-aggregate workflows via events -> commands |
+| Policy | `Policy` / `PolicyAsync` | Stateless event-to-command reactor (no internal state) |
 
 ## Public API (from da2 import ...)
 
@@ -83,6 +84,8 @@ Projection                       # projection.py
 ProjectionAsync                  # projection_async.py
 ProcessManager                   # process_manager.py
 ProcessManagerAsync              # process_manager_async.py
+Policy                           # policy.py
+PolicyAsync                      # policy_async.py
 Container                        # container.py
 EntityNotFound, ConcurrencyError # exceptions.py
 ```
@@ -377,6 +380,35 @@ Key API: `handle(event) -> list[Command]`, `_dispatch(cmd)`, `_mark_completed()`
 
 `ProcessManagerAsync` supports async `_on_*` handlers.
 
+## Policy (Stateless Reactor)
+
+Policies react to events by issuing commands, without maintaining state.
+Use when you need simple "when X happens, do Y" rules:
+
+```python
+from da2 import Command, Event
+from da2.policy import Policy
+
+class SendWelcomeEmail(Command):
+    def __init__(self, email: str): self.email = email
+
+class UserRegistered(Event):
+    def __init__(self, email: str): self.email = email
+
+class WelcomePolicy(Policy):
+    def _on_UserRegistered(self, event: UserRegistered):
+        self._dispatch(SendWelcomeEmail(email=event.email))
+
+policy = WelcomePolicy()
+cmds = policy.handle(UserRegistered(email="alice@example.com"))
+# cmds == [SendWelcomeEmail(email="alice@example.com")]
+```
+
+Policy vs ProcessManager: Policy is stateless (no process_id, no completed).
+Use Policy for simple reactive rules; ProcessManager for multi-step workflows.
+
+`PolicyAsync` supports async `_on_*` handlers.
+
 ## Async Support
 
 All sync classes have async counterparts:
@@ -389,6 +421,7 @@ All sync classes have async counterparts:
 - `SnapshotStoreAsync` / `InMemorySnapshotStoreAsync`
 - `ProjectionAsync` (async/sync mixed handlers)
 - `ProcessManagerAsync` (async/sync mixed handlers)
+- `PolicyAsync` (async/sync mixed handlers)
 
 ## Install
 

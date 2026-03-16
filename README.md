@@ -272,6 +272,33 @@ cmds = pm.handle(OrderPlaced(order_id="order-1", amount=99.0))
 
 `handle(event)` returns the list of commands to dispatch. `completed` tracks terminal state. `ProcessManagerAsync` supports async handlers.
 
+## Policy (Stateless Reactor)
+
+Policies react to events by issuing commands without maintaining state -- simple "when X happens, do Y" rules:
+
+```python
+from da2 import Command, Event
+from da2.policy import Policy
+
+class SendWelcomeEmail(Command):
+    def __init__(self, email: str):
+        self.email = email
+
+class UserRegistered(Event):
+    def __init__(self, email: str):
+        self.email = email
+
+class WelcomePolicy(Policy):
+    def _on_UserRegistered(self, event: UserRegistered):
+        self._dispatch(SendWelcomeEmail(email=event.email))
+
+policy = WelcomePolicy()
+cmds = policy.handle(UserRegistered(email="alice@example.com"))
+# cmds == [SendWelcomeEmail(email="alice@example.com")]
+```
+
+Policy vs ProcessManager: Policy is stateless (no `process_id`, no `completed`). Use Policy for simple reactive rules; ProcessManager for multi-step workflows. `PolicyAsync` supports async handlers.
+
 ## Async Support
 
 Every building block has an async counterpart:
@@ -305,6 +332,7 @@ Event Sourcing also has full async support:
 | `InMemorySnapshotStore` | `InMemorySnapshotStoreAsync` |
 | `Projection` | `ProjectionAsync` |
 | `ProcessManager` | `ProcessManagerAsync` |
+| `Policy` | `PolicyAsync` |
 
 `MessageBusAsync` supports lifecycle hooks:
 
@@ -365,6 +393,12 @@ def log_success(event_type, message, handler_name, reason):
 | Class | Description |
 |-------|-------------|
 | `ProcessManager` / `ProcessManagerAsync` | Orchestrates multi-aggregate workflows; `handle(event) -> list[Command]` |
+
+### Policy
+
+| Class | Description |
+|-------|-------------|
+| `Policy` / `PolicyAsync` | Stateless event-to-command reactor; `handle(event) -> list[Command]` |
 
 ## Architecture
 
