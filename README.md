@@ -321,6 +321,41 @@ cmds = policy.handle(UserRegistered(email="alice@example.com"))
 
 Policy vs ProcessManager: Policy is stateless (no `process_id`, no `completed`). Use Policy for simple reactive rules; ProcessManager for multi-step workflows. `PolicyAsync` supports async handlers.
 
+## Middleware
+
+Middleware wraps the `handle()` call on a MessageBus, enabling cross-cutting concerns:
+
+```python
+from da2 import bootstrap, Command, UnitOfWork
+
+def logging_mw(message, next):
+    print(f">> {type(message).__name__}")
+    result = next(message)
+    print(f"<< {type(message).__name__}")
+    return result
+
+def retry_mw(message, next):
+    for attempt in range(3):
+        try:
+            return next(message)
+        except Exception:
+            if attempt == 2:
+                raise
+
+bus = bootstrap(
+    uow=my_uow,
+    commands={CreateUser: handle_create},
+    middleware=[logging_mw, retry_mw],
+)
+result = bus.handle(CreateUser(name="Alice"))
+```
+
+Middleware executes in order (first wraps second wraps handler). Each receives `(message, next)` and can short-circuit, modify results, or catch errors. `MessageBus.handle()` now returns the command handler's result.
+
+For async, use `async def mw(message, next): result = await next(message)`.
+
+Also supported via `Bootstrap`, `BootstrapAsync`, and the `bootstrap()` shortcut.
+
 ## Async Support
 
 Every building block has an async counterpart:
@@ -388,7 +423,7 @@ def log_success(event_type, message, handler_name, reason):
 
 | Class | Description |
 |-------|-------------|
-| `MessageBus` / `MessageBusAsync` | Command/event dispatcher with event chain propagation |
+| `MessageBus` / `MessageBusAsync` | Command/event dispatcher with event chain propagation and middleware pipeline |
 | `Bootstrap` / `BootstrapAsync` | Wires handlers with DI, produces MessageBus |
 | `Container` | Standalone DI container with recursive resolution |
 

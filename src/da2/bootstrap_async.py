@@ -5,7 +5,7 @@ from typing import Any, Type, Callable
 
 from .command import Command
 from .event import Event
-from .message_bus_async import MessageBusAsync
+from .message_bus_async import MessageBusAsync, MiddlewareAsync
 from .uow_async import UnitOfWorkAsync
 
 
@@ -45,11 +45,13 @@ class BootstrapAsync:
         event_handlers: dict[Type[Event], list[Callable[..., Any]]],
         command_handlers: dict[Type[Command], Callable[..., Any]],
         dependencies: dict[str, Any] | None = None,
+        middleware: list[MiddlewareAsync] | None = None,
     ) -> None:
         self._dependencies: dict[str, Any] = {"uow": uow} | (dependencies or {})
         self._event_handlers = event_handlers
         self._command_handlers = command_handlers
         self._uow = uow
+        self._middleware = middleware or []
 
     def create_message_bus(self) -> MessageBusAsync:
         """Build a MessageBusAsync with dependency-injected handlers."""
@@ -68,6 +70,7 @@ class BootstrapAsync:
             uow=self._uow,
             event_handlers=injected_event_handlers,
             command_handlers=injected_command_handlers,
+            middleware=self._middleware,
         )
 
     @staticmethod

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import traceback
 from collections import defaultdict
-from typing import Any, Type, Callable, Union, Generic, TypeVar, Coroutine
+from typing import Any, Type, Callable, Union, Generic, TypeVar, Coroutine, Awaitable
 
 from .event import Event
 from .command import Command
@@ -14,12 +14,23 @@ logger = logging.getLogger(__name__)
 Message = Union[Command, Event]
 T = TypeVar("T", bound=UnitOfWorkAsync)
 
+MiddlewareAsync = Callable[[Message, Callable[[Message], Awaitable[Any]]], Awaitable[Any]]
+
 
 class MessageBusAsync(Generic[T]):
-    """Async command/event dispatcher with lifecycle hooks.
+    """Async command/event dispatcher with lifecycle hooks and middleware.
 
     Like MessageBus, but async. Also supports lifecycle hooks for
-    observability (logging, metrics, tracing).
+    observability (logging, metrics, tracing) and an optional middleware
+    pipeline that wraps the entire ``handle()`` call::
+
+        async def logging_mw(message, next):
+            print(f">> {type(message).__name__}")
+            result = await next(message)
+            print(f"<< {type(message).__name__}")
+            return result
+
+        bus = MessageBusAsync(uow=uow, ..., middleware=[logging_mw])
 
     Example::
 
@@ -59,11 +70,13 @@ class MessageBusAsync(Generic[T]):
         uow: T,
         event_handlers: dict[Type[Event], list[Callable[..., Coroutine[Any, Any, Any]]]],
         command_handlers: dict[Type[Command], Callable[..., Coroutine[Any, Any, Any]]],
+        middleware: list[MiddlewareAsync] | None = None,
     ) -> None:
         self.queue: list[Message] = []
         self._uow = uow
         self._event_handlers = event_handlers
         self._command_handlers = command_handlers
+        self._middleware: list[MiddlewareAsync] = middleware or []
         self._before_handle_event_hooks: list[Callable[[Command, Event], None]] = []
         self._bus_event_listeners: dict[str, list[Callable[..., Any]]] = defaultdict(list)
         self._current_cmd: Message | None = None
@@ -90,7 +103,31 @@ class MessageBusAsync(Generic[T]):
         return self._uow
 
     async def handle(self, message: Message) -> Any:
-        """Dispatch a command or event and process the entire event chain."""
+        """Dispatch a command or event and process the entire event chain.
+
+        If middleware is configured, the message passes through the
+        middleware pipeline before reaching the core dispatch logic.
+        """
+        if not self._middleware:
+            return await self._inner_handle(message)
+
+        def build_chain(
+            mws: list[MiddlewareAsync],
+            final: Callable[[Message], Awaitable[Any]],
+        ) -> Callable[[Message], Awaitable[Any]]:
+            handler = final
+            for mw in reversed(mws):
+                prev = handler
+                handler = (
+                    lambda _mw, _prev: lambda msg: _mw(msg, _prev)
+                )(mw, prev)
+            return handler
+
+        chain = build_chain(self._middleware, self._inner_handle)
+        return await chain(message)
+
+    async def _inner_handle(self, message: Message) -> Any:
+        """Core dispatch logic (without middleware)."""
         self._current_cmd = message
         self._cmd_result = None
         self.queue = [message]

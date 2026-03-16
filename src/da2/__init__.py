@@ -119,7 +119,7 @@ __all__ = [
     "ConcurrencyError",
 ]
 
-__version__ = "0.7.1"
+__version__ = "0.8.0"
 
 
 def __getattr__(name: str) -> Any:
@@ -144,6 +144,7 @@ def bootstrap(
     commands: dict[Type[Command], Callable[..., Any]] | None = None,
     events: dict[Type[Event], list[Callable[..., Any]]] | None = None,
     dependencies: dict[str, Any] | None = None,
+    middleware: list[Callable] | None = None,
 ) -> MessageBus:
     """One-liner to create a wired MessageBus. Shortcut for Bootstrap.
 
@@ -163,4 +164,5 @@ def bootstrap(
         command_handlers=commands or {},
         event_handlers=events or {},
         dependencies=dependencies,
+        middleware=middleware,
     ).create_message_bus()

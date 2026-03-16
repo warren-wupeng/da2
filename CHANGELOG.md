@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0
+
+- Add **Middleware** pipeline for `MessageBus` and `MessageBusAsync`
+- Middleware wraps the entire `handle()` call: `(message, next) -> result`
+- Composable chain: logging, retry, validation, error handling, etc.
+- `Bootstrap` / `BootstrapAsync` / `bootstrap()` accept optional `middleware` parameter
+- `MessageBus.handle()` now returns the command handler's result (backward-compatible)
+
 ## 0.7.1
 
 - Add `RedisSnapshotStore` / `RedisSnapshotStoreAsync` for production snapshot persistence

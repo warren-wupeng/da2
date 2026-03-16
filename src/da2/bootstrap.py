@@ -5,7 +5,7 @@ from typing import Any, Type, Callable
 
 from .command import Command
 from .event import Event
-from .message_bus import MessageBus
+from .message_bus import MessageBus, Middleware
 from .uow import UnitOfWork
 
 
@@ -47,11 +47,13 @@ class Bootstrap:
         event_handlers: dict[Type[Event], list[Callable[..., Any]]],
         command_handlers: dict[Type[Command], Callable[..., Any]],
         dependencies: dict[str, Any] | None = None,
+        middleware: list[Middleware] | None = None,
     ) -> None:
         self._dependencies: dict[str, Any] = {"uow": uow} | (dependencies or {})
         self._event_handlers = event_handlers
         self._command_handlers = command_handlers
         self._uow = uow
+        self._middleware = middleware or []
 
     def create_message_bus(self) -> MessageBus:
         """Build a MessageBus with dependency-injected handlers."""
@@ -70,6 +72,7 @@ class Bootstrap:
             uow=self._uow,
             event_handlers=injected_event_handlers,
             command_handlers=injected_command_handlers,
+            middleware=self._middleware,
         )
 
     @staticmethod

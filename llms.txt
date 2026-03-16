@@ -415,6 +415,45 @@ Use Policy for simple reactive rules; ProcessManager for multi-step workflows.
 
 `PolicyAsync` supports async `_on_*` handlers.
 
+## Middleware
+
+Middleware wraps the entire `handle()` call on a MessageBus, enabling
+cross-cutting concerns like logging, retry, validation, and error handling.
+
+Each middleware is a callable with signature `(message, next) -> result`:
+
+```python
+def logging_mw(message, next):
+    print(f">> {type(message).__name__}")
+    result = next(message)
+    print(f"<< {type(message).__name__}")
+    return result
+
+def retry_mw(message, next):
+    for attempt in range(3):
+        try:
+            return next(message)
+        except Exception:
+            if attempt == 2:
+                raise
+
+bus = bootstrap(
+    uow=my_uow,
+    commands={CreateUser: handle_create},
+    middleware=[logging_mw, retry_mw],
+)
+```
+
+Middleware executes in order: first middleware wraps second, which wraps
+the actual handler. A middleware can short-circuit (not call `next`),
+modify the result, or catch exceptions.
+
+`MessageBus.handle()` now returns the command handler's result.
+
+For async, middleware must be async: `async def mw(message, next): ...`
+
+Works with `Bootstrap`, `BootstrapAsync`, and the `bootstrap()` shortcut.
+
 ## Async Support
 
 All sync classes have async counterparts:
