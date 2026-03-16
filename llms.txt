@@ -454,6 +454,43 @@ For async, middleware must be async: `async def mw(message, next): ...`
 
 Works with `Bootstrap`, `BootstrapAsync`, and the `bootstrap()` shortcut.
 
+## Idempotent Command Handling
+
+Prevents duplicate command execution by caching results keyed on an
+`idempotency_key` attribute. Built as middleware, composable with
+logging, retry, etc.
+
+```python
+from da2 import Command, bootstrap
+from da2.idempotency import IdempotencyMiddleware, InMemoryIdempotencyStore
+
+class PlaceOrder(Command):
+    def __init__(self, order_id: str, idempotency_key: str = None):
+        self.order_id = order_id
+        self.idempotency_key = idempotency_key
+
+store = InMemoryIdempotencyStore()
+bus = bootstrap(
+    uow=my_uow,
+    commands={PlaceOrder: handle_place_order},
+    middleware=[IdempotencyMiddleware(store, ttl_seconds=3600)],
+)
+
+# First call executes the handler
+bus.handle(PlaceOrder("o1", idempotency_key="abc-123"))
+
+# Second call with same key returns cached result (handler NOT called)
+bus.handle(PlaceOrder("o1", idempotency_key="abc-123"))
+```
+
+Key behaviors:
+- Commands without `idempotency_key` pass through unchanged
+- Failed commands (exceptions) are NOT cached -- safe to retry
+- Results cached with configurable TTL (default 1 hour)
+- `InMemoryIdempotencyStore` for testing, implement `IdempotencyStore` for production
+
+Async: `IdempotencyMiddlewareAsync` + `IdempotencyStoreAsync` / `InMemoryIdempotencyStoreAsync`
+
 ## Async Support
 
 All sync classes have async counterparts:

@@ -61,6 +61,12 @@ from .process_manager import ProcessManager
 from .process_manager_async import ProcessManagerAsync
 from .policy import Policy
 from .policy_async import PolicyAsync
+from .idempotency import IdempotencyStore, InMemoryIdempotencyStore, IdempotencyMiddleware
+from .idempotency_async import (
+    IdempotencyStoreAsync,
+    InMemoryIdempotencyStoreAsync,
+    IdempotencyMiddlewareAsync,
+)
 
 __all__ = [
     # Core
@@ -107,6 +113,13 @@ __all__ = [
     # Policy
     "Policy",
     "PolicyAsync",
+    # Idempotency
+    "IdempotencyStore",
+    "InMemoryIdempotencyStore",
+    "IdempotencyMiddleware",
+    "IdempotencyStoreAsync",
+    "InMemoryIdempotencyStoreAsync",
+    "IdempotencyMiddlewareAsync",
     # DI
     "Container",
     # Redis (requires `pip install da2[redis]`)
@@ -119,7 +132,7 @@ __all__ = [
     "ConcurrencyError",
 ]
 
-__version__ = "0.8.0"
+__version__ = "0.9.0"
 
 
 def __getattr__(name: str) -> Any:

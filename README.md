@@ -2,7 +2,7 @@
 
 Python DDD and Event-Driven Architecture framework with Event Sourcing.
 
-Lightweight building blocks for Domain-Driven Design: Entity, Repository, Unit of Work, Command/Event, MessageBus, Bootstrap DI, Event Sourcing, Snapshots, Projections, Process Manager, and Policy.
+Lightweight building blocks for Domain-Driven Design: Entity, Repository, Unit of Work, Command/Event, MessageBus, Bootstrap DI, Event Sourcing, Snapshots, Projections, Process Manager, Policy, Middleware, and Idempotency.
 
 ## Install
 
@@ -356,6 +356,32 @@ For async, use `async def mw(message, next): result = await next(message)`.
 
 Also supported via `Bootstrap`, `BootstrapAsync`, and the `bootstrap()` shortcut.
 
+## Idempotent Command Handling
+
+Prevent duplicate command execution in distributed systems:
+
+```python
+from da2 import Command, bootstrap
+from da2.idempotency import IdempotencyMiddleware, InMemoryIdempotencyStore
+
+class PlaceOrder(Command):
+    def __init__(self, order_id: str, idempotency_key: str = None):
+        self.order_id = order_id
+        self.idempotency_key = idempotency_key
+
+store = InMemoryIdempotencyStore()
+bus = bootstrap(
+    uow=my_uow,
+    commands={PlaceOrder: handle_place_order},
+    middleware=[IdempotencyMiddleware(store, ttl_seconds=3600)],
+)
+
+bus.handle(PlaceOrder("o1", idempotency_key="abc-123"))  # executes handler
+bus.handle(PlaceOrder("o1", idempotency_key="abc-123"))  # returns cached result
+```
+
+Commands without `idempotency_key` pass through normally. Failed commands (exceptions) are NOT cached -- safe to retry. Implement `IdempotencyStore` for production storage (Redis, database, etc.).
+
 ## Async Support
 
 Every building block has an async counterpart:
@@ -460,6 +486,7 @@ def log_success(event_type, message, handler_name, reason):
 | Class | Description |
 |-------|-------------|
 | `Policy` / `PolicyAsync` | Stateless event-to-command reactor; `handle(event) -> list[Command]` |
+| `IdempotencyMiddleware` / `IdempotencyMiddlewareAsync` | Prevent duplicate command execution via cached results |
 
 ## Architecture
 

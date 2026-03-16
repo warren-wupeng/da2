@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0
+
+- Add **Idempotent Command Handling** via middleware
+- `IdempotencyStore` / `IdempotencyStoreAsync` protocol for pluggable storage
+- `InMemoryIdempotencyStore` / `InMemoryIdempotencyStoreAsync` with TTL expiration
+- `IdempotencyMiddleware` / `IdempotencyMiddlewareAsync` -- opt-in via `idempotency_key` attribute
+- Failed commands are NOT cached (safe to retry on error)
+- Composable with other middleware (logging, retry, etc.)
+
 ## 0.8.0
 
 - Add **Middleware** pipeline for `MessageBus` and `MessageBusAsync`
