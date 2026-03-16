@@ -248,6 +248,26 @@ print(proj.last_version)  # tracks position
 
 `ProjectionAsync` supports both async and sync `_on_*` handlers.
 
+### Global Event Stream
+
+For cross-aggregate projections (dashboards, reports), use the global event stream:
+
+```python
+store = InMemoryEventStore()
+store.append("order-1", [OrderPlaced("o1", 100.0)], expected_version=0)
+store.append("user-1", [UserRegistered("u1", "Alice")], expected_version=0)
+
+# Each event gets a monotonically increasing global position
+all_events = store.load_all()               # all events in order
+new_events = store.load_all(after_position=5)  # incremental
+
+# Cross-aggregate projection
+dashboard = DashboardProjection()
+dashboard.replay_all(store, event_registry)     # full rebuild
+dashboard.catch_up_all(store, event_registry)   # only new events
+print(dashboard.last_position)                  # tracks global position
+```
+
 ## Process Manager (Saga)
 
 Process Managers orchestrate long-running workflows across multiple aggregates by reacting to events and issuing commands:

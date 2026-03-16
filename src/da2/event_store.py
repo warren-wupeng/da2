@@ -39,6 +39,8 @@ class StoredEvent:
     data: dict
     version: int
     timestamp: float = field(default_factory=time.time)
+    position: int = 0
+    """Global sequence number across all aggregates (0 = not assigned)."""
 
 
 class EventStore(abc.ABC):
@@ -88,6 +90,19 @@ class EventStore(abc.ABC):
             if se.version > after_version
         ]
 
+    def load_all(self, after_position: int = 0) -> list[StoredEvent]:
+        """Load all events across all aggregates, ordered by global position.
+
+        Returns events with ``position > after_position``.
+        Override in subclasses for efficient database queries.
+        Default raises ``NotImplementedError`` -- subclasses that support
+        global ordering must implement this.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support load_all(). "
+            f"Use InMemoryEventStore or a store that tracks global position."
+        )
+
 
 class InMemoryEventStore(EventStore):
     """Dict-backed event store for testing and prototyping.
@@ -112,6 +127,8 @@ class InMemoryEventStore(EventStore):
 
     def __init__(self) -> None:
         self._streams: dict[Any, list[StoredEvent]] = {}
+        self._all_events: list[StoredEvent] = []
+        self._global_position: int = 0
 
     def append(
         self,
@@ -128,13 +145,16 @@ class InMemoryEventStore(EventStore):
                 f"Another process may have written events concurrently."
             )
         for i, event in enumerate(events):
+            self._global_position += 1
             stored = StoredEvent(
                 aggregate_id=aggregate_id,
                 event_type=type(event).__name__,
                 data=event.to_dict(),
                 version=current_version + i + 1,
+                position=self._global_position,
             )
             stream.append(stored)
+            self._all_events.append(stored)
 
     def load(self, aggregate_id: Any) -> list[StoredEvent]:
         return list(self._streams.get(aggregate_id, []))
@@ -142,3 +162,12 @@ class InMemoryEventStore(EventStore):
     def load_since(self, aggregate_id: Any, after_version: int) -> list[StoredEvent]:
         stream = self._streams.get(aggregate_id, [])
         return [se for se in stream if se.version > after_version]
+
+    def load_all(self, after_position: int = 0) -> list[StoredEvent]:
+        """Load all events across all aggregates, ordered by global position.
+
+        Returns events with ``position > after_position``.
+        """
+        if after_position == 0:
+            return list(self._all_events)
+        return [se for se in self._all_events if se.position > after_position]

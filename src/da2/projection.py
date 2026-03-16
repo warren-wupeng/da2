@@ -26,7 +26,7 @@ import abc
 from typing import Sequence
 
 from .event import Event
-from .event_store import StoredEvent
+from .event_store import EventStore, StoredEvent
 
 
 class Projection(abc.ABC):
@@ -39,11 +39,17 @@ class Projection(abc.ABC):
 
     def __init__(self) -> None:
         self._last_version: int = 0
+        self._last_position: int = 0
 
     @property
     def last_version(self) -> int:
-        """Version of the last event processed."""
+        """Version of the last event processed (per-aggregate)."""
         return self._last_version
+
+    @property
+    def last_position(self) -> int:
+        """Global position of the last event processed (cross-aggregate)."""
+        return self._last_position
 
     # ── public API ──────────────────────────────────────────────
 
@@ -93,4 +99,45 @@ class Projection(abc.ABC):
                 cls = event_registry[se.event_type]
                 event = cls.from_dict(se.data)
                 self.apply(event)
+            self._last_version = se.version
+
+    # ── global event stream (cross-aggregate) ────────────────
+
+    def replay_all(
+        self,
+        event_store: EventStore,
+        event_registry: dict[str, type[Event]],
+    ) -> None:
+        """Rebuild this projection from the global event stream.
+
+        Loads all events across all aggregates from the event store
+        and processes them in global position order.
+        """
+        stored_events = event_store.load_all(after_position=0)
+        for se in stored_events:
+            if se.event_type in event_registry:
+                cls = event_registry[se.event_type]
+                event = cls.from_dict(se.data)
+                self.apply(event)
+            if se.position > 0:
+                self._last_position = se.position
+            self._last_version = se.version
+
+    def catch_up_all(
+        self,
+        event_store: EventStore,
+        event_registry: dict[str, type[Event]],
+    ) -> None:
+        """Process new events from the global stream since :attr:`last_position`.
+
+        This is the incremental counterpart to :meth:`replay_all`.
+        """
+        stored_events = event_store.load_all(after_position=self._last_position)
+        for se in stored_events:
+            if se.event_type in event_registry:
+                cls = event_registry[se.event_type]
+                event = cls.from_dict(se.data)
+                self.apply(event)
+            if se.position > 0:
+                self._last_position = se.position
             self._last_version = se.version

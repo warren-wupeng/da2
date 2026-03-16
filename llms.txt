@@ -350,6 +350,36 @@ proj.catch_up(new_stored_events, event_registry)
 
 `ProjectionAsync` supports async `_on_*` handlers (and mixed sync/async).
 
+### Global Event Stream (Cross-Aggregate Projections)
+
+For real-world CQRS, projections need events from ALL aggregates, not just one.
+`EventStore.load_all()` provides a globally ordered event stream:
+
+```python
+from da2 import InMemoryEventStore, Projection
+
+store = InMemoryEventStore()
+store.append("order-1", [OrderPlaced("o1", 100.0)], expected_version=0)
+store.append("user-1", [UserRegistered("u1", "Alice")], expected_version=0)
+
+# Each event gets a global position (1, 2, 3, ...)
+all_events = store.load_all()  # all events in insertion order
+new_events = store.load_all(after_position=5)  # only events after position 5
+
+# Projection can replay/catch-up from global stream
+dashboard = DashboardProjection()
+dashboard.replay_all(store, event_registry)       # full rebuild
+dashboard.catch_up_all(store, event_registry)      # incremental
+print(dashboard.last_position)                     # tracks global position
+```
+
+Key API:
+- `StoredEvent.position` -- global sequence number (0 = not assigned)
+- `EventStore.load_all(after_position=0)` -- read global stream
+- `Projection.replay_all(event_store, registry)` -- full rebuild from global stream
+- `Projection.catch_up_all(event_store, registry)` -- incremental processing
+- `Projection.last_position` -- last processed global position
+
 ## Process Manager (Saga)
 
 Process Managers orchestrate multi-aggregate workflows by reacting to

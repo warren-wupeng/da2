@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.11.0
+
+- Add **Global Event Stream** for cross-aggregate projections (CQRS)
+- `StoredEvent` gains `position` field (global sequence number, default 0)
+- `EventStore.load_all(after_position)` / `EventStoreAsync.load_all(after_position)` to read the global stream
+- `InMemoryEventStore` / `InMemoryEventStoreAsync` track global position automatically
+- `Projection.replay_all(event_store, registry)` and `catch_up_all()` for cross-aggregate processing
+- `ProjectionAsync.replay_all()` / `catch_up_all()` async counterparts
+- `Projection.last_position` tracks global stream position
+
 ## 0.10.0
 
 - Add **Event Upcasting** for schema evolution in event-sourced systems
