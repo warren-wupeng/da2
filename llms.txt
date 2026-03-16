@@ -52,6 +52,7 @@ bus.handle(CreateUser(name="Alice"))
 | EventStore | `EventStore` / `EventStoreAsync` | Append-only event persistence with optimistic concurrency |
 | EventSourcedRepository | `EventSourcedRepository[T]` / `EventSourcedRepositoryAsync[T]` | Load/save event-sourced entities via EventStore |
 | Snapshot | `Snapshot` / `SnapshotStore` / `SnapshotStoreAsync` | Periodic state capture to avoid replaying all events |
+| Projection | `Projection` / `ProjectionAsync` | CQRS read model built by applying/replaying events |
 
 ## Public API (from da2 import ...)
 
@@ -77,6 +78,8 @@ SnapshotStore                    # snapshot.py
 InMemorySnapshotStore            # snapshot.py
 SnapshotStoreAsync               # snapshot_async.py
 InMemorySnapshotStoreAsync       # snapshot_async.py
+Projection                       # projection.py
+ProjectionAsync                  # projection_async.py
 Container                        # container.py
 EntityNotFound, ConcurrencyError # exceptions.py
 ```
@@ -282,6 +285,46 @@ account = repo.get("acc-1")
 Entity provides `take_snapshot()`, `from_snapshot()`, and overridable
 `_snapshot_state()` / `_restore_from_snapshot()`.
 
+## Projections (CQRS Read Models)
+
+Projections build read-optimized views by applying domain events.
+Use `_on_<EventClassName>` methods to handle specific event types:
+
+```python
+from da2 import Projection, Event, StoredEvent
+
+class OrderPlaced(Event):
+    def __init__(self, order_id: str, amount: float):
+        self.order_id = order_id
+        self.amount = amount
+
+class OrderTotals(Projection):
+    def __init__(self):
+        super().__init__()
+        self.totals: dict[str, float] = {}
+
+    def _on_OrderPlaced(self, event: OrderPlaced):
+        self.totals[event.order_id] = event.amount
+```
+
+### Live apply vs. replay
+
+```python
+proj = OrderTotals()
+
+# Live: apply domain events directly
+proj.apply(OrderPlaced("o1", 100.0))
+
+# Replay: rebuild from stored events
+event_registry = {"OrderPlaced": OrderPlaced}
+proj.replay(stored_events, event_registry)
+
+# Catch-up: process only events after last_version
+proj.catch_up(new_stored_events, event_registry)
+```
+
+`ProjectionAsync` supports async `_on_*` handlers (and mixed sync/async).
+
 ## Async Support
 
 All sync classes have async counterparts:
@@ -292,6 +335,7 @@ All sync classes have async counterparts:
 - `EventStoreAsync` / `InMemoryEventStoreAsync`
 - `EventSourcedRepositoryAsync[T]`
 - `SnapshotStoreAsync` / `InMemorySnapshotStoreAsync`
+- `ProjectionAsync` (async/sync mixed handlers)
 
 ## Install
 

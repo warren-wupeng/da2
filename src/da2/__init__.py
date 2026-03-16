@@ -55,6 +55,8 @@ from .event_sourced_repository import EventSourcedRepository
 from .event_sourced_repository_async import EventSourcedRepositoryAsync
 from .snapshot import Snapshot, SnapshotStore, InMemorySnapshotStore
 from .snapshot_async import SnapshotStoreAsync, InMemorySnapshotStoreAsync
+from .projection import Projection
+from .projection_async import ProjectionAsync
 
 __all__ = [
     # Core
@@ -92,6 +94,9 @@ __all__ = [
     "InMemorySnapshotStore",
     "SnapshotStoreAsync",
     "InMemorySnapshotStoreAsync",
+    # Projection
+    "Projection",
+    "ProjectionAsync",
     # DI
     "Container",
     # Exceptions
@@ -99,7 +104,7 @@ __all__ = [
     "ConcurrencyError",
 ]
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 
 
 def bootstrap(
