@@ -50,6 +50,7 @@ bus.handle(CreateUser(name="Alice"))
 | Container | `Container` | Simple DI container for registering and resolving dependencies |
 | EventSourcedEntity | `EventSourcedEntity[Identity]` | Aggregate whose state is derived from an event stream |
 | EventStore | `EventStore` / `EventStoreAsync` | Append-only event persistence with optimistic concurrency |
+| RedisEventStore | `RedisEventStore` / `RedisEventStoreAsync` | Production Redis-backed event store (`pip install da2[redis]`) |
 | EventSourcedRepository | `EventSourcedRepository[T]` / `EventSourcedRepositoryAsync[T]` | Load/save event-sourced entities via EventStore |
 | Snapshot | `Snapshot` / `SnapshotStore` / `SnapshotStoreAsync` | Periodic state capture to avoid replaying all events |
 | Projection | `Projection` / `ProjectionAsync` | CQRS read model built by applying/replaying events |
@@ -72,6 +73,8 @@ EventSourcedEntity               # event_sourced.py
 EventStore, InMemoryEventStore   # event_store.py
 EventStoreAsync                  # event_store_async.py
 InMemoryEventStoreAsync          # event_store_async.py
+RedisEventStore                  # redis_event_store.py (requires redis)
+RedisEventStoreAsync             # redis_event_store_async.py (requires redis)
 StoredEvent                      # event_store.py
 EventSourcedRepository           # event_sourced_repository.py
 EventSourcedRepositoryAsync      # event_sourced_repository_async.py

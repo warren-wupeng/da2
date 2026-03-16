@@ -109,12 +109,26 @@ __all__ = [
     "PolicyAsync",
     # DI
     "Container",
+    # Redis (requires `pip install da2[redis]`)
+    "RedisEventStore",
+    "RedisEventStoreAsync",
     # Exceptions
     "EntityNotFound",
     "ConcurrencyError",
 ]
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
+
+
+def __getattr__(name: str) -> Any:
+    """Lazy import for optional Redis dependencies."""
+    if name == "RedisEventStore":
+        from .redis_event_store import RedisEventStore
+        return RedisEventStore
+    if name == "RedisEventStoreAsync":
+        from .redis_event_store_async import RedisEventStoreAsync
+        return RedisEventStoreAsync
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def bootstrap(

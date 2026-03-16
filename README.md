@@ -2,12 +2,13 @@
 
 Python DDD and Event-Driven Architecture framework with Event Sourcing.
 
-Lightweight building blocks for Domain-Driven Design: Entity, Repository, Unit of Work, Command/Event, MessageBus, Bootstrap DI, Event Sourcing, Snapshots, and Projections.
+Lightweight building blocks for Domain-Driven Design: Entity, Repository, Unit of Work, Command/Event, MessageBus, Bootstrap DI, Event Sourcing, Snapshots, Projections, Process Manager, and Policy.
 
 ## Install
 
 ```bash
-pip install da2
+pip install da2          # core (zero dependencies)
+pip install da2[redis]   # + Redis-backed EventStore
 ```
 
 ## Quick Start
@@ -187,6 +188,25 @@ repo = EventSourcedRepository(
 # After 100+ events, repo.get() loads snapshot + recent events only
 ```
 
+### Redis EventStore
+
+For production, use `RedisEventStore` (requires `pip install da2[redis]`):
+
+```python
+import redis
+from da2 import RedisEventStore
+
+r = redis.Redis(host="localhost", port=6379, decode_responses=True)
+store = RedisEventStore(r, prefix="myapp:events")
+
+# Use like InMemoryEventStore -- same API, backed by Redis
+repo = EventSourcedRepository(
+    event_store=store, entity_cls=BankAccount, event_registry={...},
+)
+```
+
+Atomic optimistic concurrency via Lua scripting. `RedisEventStoreAsync` for async.
+
 ## Projections (CQRS Read Models)
 
 Projections build read-optimized views by applying domain events:
@@ -333,6 +353,7 @@ Event Sourcing also has full async support:
 | `Projection` | `ProjectionAsync` |
 | `ProcessManager` | `ProcessManagerAsync` |
 | `Policy` | `PolicyAsync` |
+| `RedisEventStore` | `RedisEventStoreAsync` |
 
 `MessageBusAsync` supports lifecycle hooks:
 
@@ -375,6 +396,7 @@ def log_success(event_type, message, handler_name, reason):
 | `EventSourcedEntity[Identity]` | Aggregate whose state is derived from events |
 | `EventStore` / `EventStoreAsync` | Append-only event persistence with optimistic concurrency |
 | `InMemoryEventStore` / `InMemoryEventStoreAsync` | Dict-backed event store for testing |
+| `RedisEventStore` / `RedisEventStoreAsync` | Redis-backed event store with Lua concurrency (requires `da2[redis]`) |
 | `StoredEvent` | Immutable envelope for a persisted event |
 | `EventSourcedRepository` / `EventSourcedRepositoryAsync` | Load/save event-sourced entities |
 | `Snapshot` | Captured state at a point in time |

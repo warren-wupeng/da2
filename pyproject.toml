@@ -1,6 +1,6 @@
 [project]
 name = "da2"
-version = "0.6.0"
+version = "0.7.0"
 description = "Python DDD and Event-Driven Architecture framework with Event Sourcing"
 authors = [
     {name = "warren-wupeng", email = "warren.wu@visionwx.com"},
@@ -26,6 +26,7 @@ dev = [
     "pytest>=7.4.1",
     "pytest-asyncio>=0.21.1",
     "pytest-cov>=4.1.0",
+    "fakeredis[lua]>=2.34.1",
 ]
 
 [tool.pytest.ini_options]
