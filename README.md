@@ -226,6 +226,52 @@ print(proj.last_version)  # tracks position
 
 `ProjectionAsync` supports both async and sync `_on_*` handlers.
 
+## Process Manager (Saga)
+
+Process Managers orchestrate long-running workflows across multiple aggregates by reacting to events and issuing commands:
+
+```python
+from da2 import Command, Event
+from da2.process_manager import ProcessManager
+
+class ReserveStock(Command):
+    def __init__(self, order_id: str):
+        self.order_id = order_id
+
+class ChargePayment(Command):
+    def __init__(self, order_id: str, amount: float):
+        self.order_id = order_id
+        self.amount = amount
+
+class OrderPlaced(Event):
+    def __init__(self, order_id: str, amount: float):
+        self.order_id = order_id
+        self.amount = amount
+
+class StockReserved(Event):
+    def __init__(self, order_id: str):
+        self.order_id = order_id
+
+class OrderFulfillment(ProcessManager):
+    def __init__(self, process_id: str):
+        super().__init__(process_id)
+        self.amount = 0.0
+
+    def _on_OrderPlaced(self, event: OrderPlaced):
+        self.amount = event.amount
+        self._dispatch(ReserveStock(order_id=event.order_id))
+
+    def _on_StockReserved(self, event: StockReserved):
+        self._dispatch(ChargePayment(order_id=event.order_id, amount=self.amount))
+        self._mark_completed()
+
+pm = OrderFulfillment("order-1")
+cmds = pm.handle(OrderPlaced(order_id="order-1", amount=99.0))
+# cmds == [ReserveStock(order_id="order-1")]
+```
+
+`handle(event)` returns the list of commands to dispatch. `completed` tracks terminal state. `ProcessManagerAsync` supports async handlers.
+
 ## Async Support
 
 Every building block has an async counterpart:
@@ -258,6 +304,7 @@ Event Sourcing also has full async support:
 | `SnapshotStore` | `SnapshotStoreAsync` |
 | `InMemorySnapshotStore` | `InMemorySnapshotStoreAsync` |
 | `Projection` | `ProjectionAsync` |
+| `ProcessManager` | `ProcessManagerAsync` |
 
 `MessageBusAsync` supports lifecycle hooks:
 
@@ -313,6 +360,12 @@ def log_success(event_type, message, handler_name, reason):
 |-------|-------------|
 | `Projection` / `ProjectionAsync` | CQRS read model with `_on_<EventClassName>` dispatch, replay, and catch-up |
 
+### Process Manager
+
+| Class | Description |
+|-------|-------------|
+| `ProcessManager` / `ProcessManagerAsync` | Orchestrates multi-aggregate workflows; `handle(event) -> list[Command]` |
+
 ## Architecture
 
 ```
@@ -346,6 +399,15 @@ EventStore.load() --> StoredEvent[] --> Projection.replay(events, registry)
 New events    --> Projection.catch_up(new_events, registry)
                       --> skips already-processed versions
                       --> applies only new events
+```
+
+Process Manager flow:
+
+```
+Event --> ProcessManager.handle(event)
+              --> _on_OrderPlaced(event)
+              --> _dispatch(ReserveStock(...))
+              --> returns [ReserveStock(...)]   # feed back into MessageBus
 ```
 
 ## License

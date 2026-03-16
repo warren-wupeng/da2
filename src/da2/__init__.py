@@ -57,6 +57,8 @@ from .snapshot import Snapshot, SnapshotStore, InMemorySnapshotStore
 from .snapshot_async import SnapshotStoreAsync, InMemorySnapshotStoreAsync
 from .projection import Projection
 from .projection_async import ProjectionAsync
+from .process_manager import ProcessManager
+from .process_manager_async import ProcessManagerAsync
 
 __all__ = [
     # Core
@@ -97,6 +99,9 @@ __all__ = [
     # Projection
     "Projection",
     "ProjectionAsync",
+    # Process Manager
+    "ProcessManager",
+    "ProcessManagerAsync",
     # DI
     "Container",
     # Exceptions
@@ -104,7 +109,7 @@ __all__ = [
     "ConcurrencyError",
 ]
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 
 def bootstrap(
