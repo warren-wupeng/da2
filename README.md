@@ -2,7 +2,7 @@
 
 Python DDD and Event-Driven Architecture framework with Event Sourcing.
 
-Lightweight building blocks for Domain-Driven Design: Entity, Repository, Unit of Work, Command/Event, MessageBus, Bootstrap DI, Event Sourcing, and Snapshots.
+Lightweight building blocks for Domain-Driven Design: Entity, Repository, Unit of Work, Command/Event, MessageBus, Bootstrap DI, Event Sourcing, Snapshots, and Projections.
 
 ## Install
 
@@ -187,6 +187,45 @@ repo = EventSourcedRepository(
 # After 100+ events, repo.get() loads snapshot + recent events only
 ```
 
+## Projections (CQRS Read Models)
+
+Projections build read-optimized views by applying domain events:
+
+```python
+from da2 import Projection, Event, StoredEvent
+
+class OrderPlaced(Event):
+    def __init__(self, order_id: str, amount: float):
+        self.order_id = order_id
+        self.amount = amount
+
+class OrderTotals(Projection):
+    def __init__(self):
+        super().__init__()
+        self.totals: dict[str, float] = {}
+
+    def _on_OrderPlaced(self, event: OrderPlaced):
+        self.totals[event.order_id] = event.amount
+```
+
+Convention: `_on_<EventClassName>` handlers (similar to `_when_*` in EventSourcedEntity).
+
+### Replay and catch-up
+
+```python
+event_registry = {"OrderPlaced": OrderPlaced}
+
+# Full replay from stored events
+proj = OrderTotals()
+proj.replay(stored_events, event_registry)
+
+# Incremental catch-up (skips events already processed)
+proj.catch_up(new_stored_events, event_registry)
+print(proj.last_version)  # tracks position
+```
+
+`ProjectionAsync` supports both async and sync `_on_*` handlers.
+
 ## Async Support
 
 Every building block has an async counterpart:
@@ -218,6 +257,7 @@ Event Sourcing also has full async support:
 | `EventSourcedRepository` | `EventSourcedRepositoryAsync` |
 | `SnapshotStore` | `SnapshotStoreAsync` |
 | `InMemorySnapshotStore` | `InMemorySnapshotStoreAsync` |
+| `Projection` | `ProjectionAsync` |
 
 `MessageBusAsync` supports lifecycle hooks:
 
@@ -267,6 +307,12 @@ def log_success(event_type, message, handler_name, reason):
 | `InMemorySnapshotStore` / `InMemorySnapshotStoreAsync` | Dict-backed snapshot store for testing |
 | `ConcurrencyError` | Raised on version conflict |
 
+### Projections
+
+| Class | Description |
+|-------|-------------|
+| `Projection` / `ProjectionAsync` | CQRS read model with `_on_<EventClassName>` dispatch, replay, and catch-up |
+
 ## Architecture
 
 ```
@@ -287,6 +333,19 @@ BankAccount._apply_and_record(MoneyDeposited(100))
     --> event added to pending_events
     --> repo.save(account)            # appends to EventStore
     --> repo.get("acc-1")             # replays events (or snapshot + delta)
+```
+
+Projection flow:
+
+```
+EventStore.load() --> StoredEvent[] --> Projection.replay(events, registry)
+                                            --> _on_OrderPlaced(event)
+                                            --> _on_OrderShipped(event)
+                                            --> last_version updated
+
+New events    --> Projection.catch_up(new_events, registry)
+                      --> skips already-processed versions
+                      --> applies only new events
 ```
 
 ## License
