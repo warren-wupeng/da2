@@ -207,6 +207,8 @@ repo = EventSourcedRepository(
 
 Atomic optimistic concurrency via Lua scripting. `RedisEventStoreAsync` for async.
 
+`RedisSnapshotStore` / `RedisSnapshotStoreAsync` also available for snapshot persistence.
+
 ## Projections (CQRS Read Models)
 
 Projections build read-optimized views by applying domain events:
@@ -354,6 +356,7 @@ Event Sourcing also has full async support:
 | `ProcessManager` | `ProcessManagerAsync` |
 | `Policy` | `PolicyAsync` |
 | `RedisEventStore` | `RedisEventStoreAsync` |
+| `RedisSnapshotStore` | `RedisSnapshotStoreAsync` |
 
 `MessageBusAsync` supports lifecycle hooks:
 
@@ -397,6 +400,7 @@ def log_success(event_type, message, handler_name, reason):
 | `EventStore` / `EventStoreAsync` | Append-only event persistence with optimistic concurrency |
 | `InMemoryEventStore` / `InMemoryEventStoreAsync` | Dict-backed event store for testing |
 | `RedisEventStore` / `RedisEventStoreAsync` | Redis-backed event store with Lua concurrency (requires `da2[redis]`) |
+| `RedisSnapshotStore` / `RedisSnapshotStoreAsync` | Redis-backed snapshot store (requires `da2[redis]`) |
 | `StoredEvent` | Immutable envelope for a persisted event |
 | `EventSourcedRepository` / `EventSourcedRepositoryAsync` | Load/save event-sourced entities |
 | `Snapshot` | Captured state at a point in time |

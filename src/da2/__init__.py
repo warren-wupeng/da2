@@ -112,12 +112,14 @@ __all__ = [
     # Redis (requires `pip install da2[redis]`)
     "RedisEventStore",
     "RedisEventStoreAsync",
+    "RedisSnapshotStore",
+    "RedisSnapshotStoreAsync",
     # Exceptions
     "EntityNotFound",
     "ConcurrencyError",
 ]
 
-__version__ = "0.7.0"
+__version__ = "0.7.1"
 
 
 def __getattr__(name: str) -> Any:
@@ -128,6 +130,12 @@ def __getattr__(name: str) -> Any:
     if name == "RedisEventStoreAsync":
         from .redis_event_store_async import RedisEventStoreAsync
         return RedisEventStoreAsync
+    if name == "RedisSnapshotStore":
+        from .redis_snapshot_store import RedisSnapshotStore
+        return RedisSnapshotStore
+    if name == "RedisSnapshotStoreAsync":
+        from .redis_snapshot_store_async import RedisSnapshotStoreAsync
+        return RedisSnapshotStoreAsync
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

@@ -53,6 +53,7 @@ bus.handle(CreateUser(name="Alice"))
 | RedisEventStore | `RedisEventStore` / `RedisEventStoreAsync` | Production Redis-backed event store (`pip install da2[redis]`) |
 | EventSourcedRepository | `EventSourcedRepository[T]` / `EventSourcedRepositoryAsync[T]` | Load/save event-sourced entities via EventStore |
 | Snapshot | `Snapshot` / `SnapshotStore` / `SnapshotStoreAsync` | Periodic state capture to avoid replaying all events |
+| RedisSnapshotStore | `RedisSnapshotStore` / `RedisSnapshotStoreAsync` | Production Redis-backed snapshot store (`pip install da2[redis]`) |
 | Projection | `Projection` / `ProjectionAsync` | CQRS read model built by applying/replaying events |
 | Process Manager | `ProcessManager` / `ProcessManagerAsync` | Orchestrates multi-aggregate workflows via events -> commands |
 | Policy | `Policy` / `PolicyAsync` | Stateless event-to-command reactor (no internal state) |
@@ -83,6 +84,8 @@ SnapshotStore                    # snapshot.py
 InMemorySnapshotStore            # snapshot.py
 SnapshotStoreAsync               # snapshot_async.py
 InMemorySnapshotStoreAsync       # snapshot_async.py
+RedisSnapshotStore               # redis_snapshot_store.py (requires redis)
+RedisSnapshotStoreAsync          # redis_snapshot_store_async.py (requires redis)
 Projection                       # projection.py
 ProjectionAsync                  # projection_async.py
 ProcessManager                   # process_manager.py
