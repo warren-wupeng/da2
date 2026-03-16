@@ -59,6 +59,7 @@ bus.handle(CreateUser(name="Alice"))
 | Policy | `Policy` / `PolicyAsync` | Stateless event-to-command reactor (no internal state) |
 | Idempotency | `IdempotencyMiddleware` / `IdempotencyMiddlewareAsync` | Prevent duplicate command execution via cached results |
 | RedisIdempotencyStore | `RedisIdempotencyStore` / `RedisIdempotencyStoreAsync` | Production Redis-backed idempotency store (`pip install da2[redis]`) |
+| Upcaster | `Upcaster` / `UpcasterChain` | Transform stored events from older schemas to current format |
 
 ## Public API (from da2 import ...)
 
@@ -102,6 +103,8 @@ InMemoryIdempotencyStoreAsync    # idempotency_async.py
 IdempotencyMiddlewareAsync       # idempotency_async.py
 RedisIdempotencyStore            # redis_idempotency_store.py (requires redis)
 RedisIdempotencyStoreAsync       # redis_idempotency_store_async.py (requires redis)
+Upcaster                         # upcaster.py
+UpcasterChain                    # upcaster.py
 Container                        # container.py
 EntityNotFound, ConcurrencyError # exceptions.py
 ```
@@ -501,6 +504,48 @@ Key behaviors:
 
 Production: `RedisIdempotencyStore` / `RedisIdempotencyStoreAsync` (requires `pip install da2[redis]`)
 Async: `IdempotencyMiddlewareAsync` + `IdempotencyStoreAsync` / `InMemoryIdempotencyStoreAsync`
+
+## Event Upcasting (Schema Evolution)
+
+When event schemas change over time, stored events in the old format need
+to be transformed to the current format during loading. Upcasters handle
+this transparently -- no data migration required.
+
+```python
+from da2 import Upcaster, UpcasterChain, EventSourcedRepository
+
+class AddCurrencyField(Upcaster):
+    """v1 -> v2: OrderPlaced gained a 'currency' field."""
+    event_type = "OrderPlaced"
+
+    def upcast(self, data: dict) -> dict:
+        data.setdefault("currency", "USD")
+        return data
+
+class RenameOrderPlaced(Upcaster):
+    """v2 -> v3: OrderPlaced renamed to OrderCreated."""
+    event_type = "OrderPlaced"
+    target_event_type = "OrderCreated"
+
+    def upcast(self, data: dict) -> dict:
+        return data
+
+chain = UpcasterChain([AddCurrencyField(), RenameOrderPlaced()])
+repo = EventSourcedRepository(
+    event_store=store,
+    entity_cls=Order,
+    event_registry={"OrderCreated": OrderCreated},
+    upcaster_chain=chain,
+)
+order = repo.get("order-1")  # legacy events are upcasted on the fly
+```
+
+Key design:
+- `Upcaster`: abstract base class with `event_type` and `upcast(data) -> data`
+- `UpcasterChain`: applies upcasters in registration order
+- Optional `target_event_type` renames the event type after upcasting
+- Input data is copied (originals not mutated)
+- Works with both `EventSourcedRepository` and `EventSourcedRepositoryAsync`
 
 ## Async Support
 

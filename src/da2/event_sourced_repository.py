@@ -14,6 +14,7 @@ from .event_sourced import EventSourcedEntity
 from .event_store import EventStore
 from .exceptions import EntityNotFound
 from .snapshot import SnapshotStore
+from .upcaster import UpcasterChain
 
 T = TypeVar("T", bound=EventSourcedEntity)
 
@@ -71,6 +72,7 @@ class EventSourcedRepository(Generic[T]):
         add_seen: Callable[[EventSourcedEntity], None] | None = None,
         snapshot_store: SnapshotStore | None = None,
         snapshot_interval: int = 0,
+        upcaster_chain: UpcasterChain | None = None,
     ) -> None:
         self._store = event_store
         self._entity_cls = entity_cls
@@ -78,6 +80,7 @@ class EventSourcedRepository(Generic[T]):
         self._add_seen = add_seen
         self._snapshot_store = snapshot_store
         self._snapshot_interval = snapshot_interval
+        self._upcaster_chain = upcaster_chain
 
     def get(self, identity: Any) -> T:
         """Load an aggregate, using snapshot if available.
@@ -138,6 +141,8 @@ class EventSourcedRepository(Generic[T]):
         return new_bucket > old_bucket
 
     def _deserialize(self, event_type: str, data: dict) -> Event:
+        if self._upcaster_chain is not None:
+            event_type, data = self._upcaster_chain.upcast(event_type, data)
         cls = self._event_registry.get(event_type)
         if cls is None:
             registered = list(self._event_registry.keys())

@@ -67,6 +67,7 @@ from .idempotency_async import (
     InMemoryIdempotencyStoreAsync,
     IdempotencyMiddlewareAsync,
 )
+from .upcaster import Upcaster, UpcasterChain
 
 __all__ = [
     # Core
@@ -120,6 +121,9 @@ __all__ = [
     "IdempotencyStoreAsync",
     "InMemoryIdempotencyStoreAsync",
     "IdempotencyMiddlewareAsync",
+    # Upcasting
+    "Upcaster",
+    "UpcasterChain",
     # DI
     "Container",
     # Redis (requires `pip install da2[redis]`)
@@ -134,7 +138,7 @@ __all__ = [
     "ConcurrencyError",
 ]
 
-__version__ = "0.9.0"
+__version__ = "0.10.0"
 
 
 def __getattr__(name: str) -> Any:

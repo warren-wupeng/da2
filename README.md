@@ -2,7 +2,7 @@
 
 Python DDD and Event-Driven Architecture framework with Event Sourcing.
 
-Lightweight building blocks for Domain-Driven Design: Entity, Repository, Unit of Work, Command/Event, MessageBus, Bootstrap DI, Event Sourcing, Snapshots, Projections, Process Manager, Policy, Middleware, and Idempotency.
+Lightweight building blocks for Domain-Driven Design: Entity, Repository, Unit of Work, Command/Event, MessageBus, Bootstrap DI, Event Sourcing, Snapshots, Projections, Process Manager, Policy, Middleware, Idempotency, and Event Upcasting.
 
 ## Install
 
@@ -382,6 +382,41 @@ bus.handle(PlaceOrder("o1", idempotency_key="abc-123"))  # returns cached result
 
 Commands without `idempotency_key` pass through normally. Failed commands (exceptions) are NOT cached -- safe to retry. Implement `IdempotencyStore` for production storage (Redis, database, etc.).
 
+## Event Upcasting (Schema Evolution)
+
+When event schemas change over time, stored events need to be transformed to the current format during loading. Upcasters handle this transparently -- no data migration required:
+
+```python
+from da2 import Upcaster, UpcasterChain, EventSourcedRepository
+
+class AddCurrencyField(Upcaster):
+    """v1 -> v2: OrderPlaced gained a 'currency' field."""
+    event_type = "OrderPlaced"
+
+    def upcast(self, data: dict) -> dict:
+        data.setdefault("currency", "USD")
+        return data
+
+class RenameOrderPlaced(Upcaster):
+    """v2 -> v3: OrderPlaced renamed to OrderCreated."""
+    event_type = "OrderPlaced"
+    target_event_type = "OrderCreated"
+
+    def upcast(self, data: dict) -> dict:
+        return data
+
+chain = UpcasterChain([AddCurrencyField(), RenameOrderPlaced()])
+repo = EventSourcedRepository(
+    event_store=store,
+    entity_cls=Order,
+    event_registry={"OrderCreated": OrderCreated},
+    upcaster_chain=chain,
+)
+order = repo.get("order-1")  # legacy events are upcasted on the fly
+```
+
+Upcasters are applied in registration order. Set `target_event_type` to rename event types. Input data is copied (originals not mutated). Works with both sync and async repositories.
+
 ## Async Support
 
 Every building block has an async counterpart:
@@ -467,6 +502,8 @@ def log_success(event_type, message, handler_name, reason):
 | `Snapshot` | Captured state at a point in time |
 | `SnapshotStore` / `SnapshotStoreAsync` | Snapshot persistence |
 | `InMemorySnapshotStore` / `InMemorySnapshotStoreAsync` | Dict-backed snapshot store for testing |
+| `Upcaster` | Abstract base class for event schema transformations |
+| `UpcasterChain` | Applies a sequence of upcasters during event loading |
 | `ConcurrencyError` | Raised on version conflict |
 
 ### Projections

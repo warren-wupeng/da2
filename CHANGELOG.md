@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.0
+
+- Add **Event Upcasting** for schema evolution in event-sourced systems
+- `Upcaster` abstract base class: subclass to transform stored event data
+- `UpcasterChain`: applies upcasters in sequence, supports event type renaming
+- `EventSourcedRepository` / `EventSourcedRepositoryAsync` accept optional `upcaster_chain`
+- Upcasters run transparently during `_deserialize()` -- no data migration required
+
 ## 0.9.0
 
 - Add **Idempotent Command Handling** via middleware
