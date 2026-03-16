@@ -127,6 +127,8 @@ __all__ = [
     "RedisEventStoreAsync",
     "RedisSnapshotStore",
     "RedisSnapshotStoreAsync",
+    "RedisIdempotencyStore",
+    "RedisIdempotencyStoreAsync",
     # Exceptions
     "EntityNotFound",
     "ConcurrencyError",
@@ -149,6 +151,12 @@ def __getattr__(name: str) -> Any:
     if name == "RedisSnapshotStoreAsync":
         from .redis_snapshot_store_async import RedisSnapshotStoreAsync
         return RedisSnapshotStoreAsync
+    if name == "RedisIdempotencyStore":
+        from .redis_idempotency_store import RedisIdempotencyStore
+        return RedisIdempotencyStore
+    if name == "RedisIdempotencyStoreAsync":
+        from .redis_idempotency_store_async import RedisIdempotencyStoreAsync
+        return RedisIdempotencyStoreAsync
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

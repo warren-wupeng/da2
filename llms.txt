@@ -57,6 +57,8 @@ bus.handle(CreateUser(name="Alice"))
 | Projection | `Projection` / `ProjectionAsync` | CQRS read model built by applying/replaying events |
 | Process Manager | `ProcessManager` / `ProcessManagerAsync` | Orchestrates multi-aggregate workflows via events -> commands |
 | Policy | `Policy` / `PolicyAsync` | Stateless event-to-command reactor (no internal state) |
+| Idempotency | `IdempotencyMiddleware` / `IdempotencyMiddlewareAsync` | Prevent duplicate command execution via cached results |
+| RedisIdempotencyStore | `RedisIdempotencyStore` / `RedisIdempotencyStoreAsync` | Production Redis-backed idempotency store (`pip install da2[redis]`) |
 
 ## Public API (from da2 import ...)
 
@@ -92,6 +94,14 @@ ProcessManager                   # process_manager.py
 ProcessManagerAsync              # process_manager_async.py
 Policy                           # policy.py
 PolicyAsync                      # policy_async.py
+IdempotencyStore                 # idempotency.py
+InMemoryIdempotencyStore         # idempotency.py
+IdempotencyMiddleware            # idempotency.py
+IdempotencyStoreAsync            # idempotency_async.py
+InMemoryIdempotencyStoreAsync    # idempotency_async.py
+IdempotencyMiddlewareAsync       # idempotency_async.py
+RedisIdempotencyStore            # redis_idempotency_store.py (requires redis)
+RedisIdempotencyStoreAsync       # redis_idempotency_store_async.py (requires redis)
 Container                        # container.py
 EntityNotFound, ConcurrencyError # exceptions.py
 ```
@@ -489,6 +499,7 @@ Key behaviors:
 - Results cached with configurable TTL (default 1 hour)
 - `InMemoryIdempotencyStore` for testing, implement `IdempotencyStore` for production
 
+Production: `RedisIdempotencyStore` / `RedisIdempotencyStoreAsync` (requires `pip install da2[redis]`)
 Async: `IdempotencyMiddlewareAsync` + `IdempotencyStoreAsync` / `InMemoryIdempotencyStoreAsync`
 
 ## Async Support

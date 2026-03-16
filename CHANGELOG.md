@@ -8,6 +8,7 @@
 - `IdempotencyMiddleware` / `IdempotencyMiddlewareAsync` -- opt-in via `idempotency_key` attribute
 - Failed commands are NOT cached (safe to retry on error)
 - Composable with other middleware (logging, retry, etc.)
+- `RedisIdempotencyStore` / `RedisIdempotencyStoreAsync` for production use (requires `da2[redis]`)
 
 ## 0.8.0
 
