@@ -8,14 +8,25 @@ authors = [
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
-keywords = ["ddd", "domain-driven-design", "event-driven", "cqrs", "event-sourcing", "python"]
+keywords = ["ddd", "domain-driven-design", "event-driven", "cqrs", "event-sourcing", "python", "saga", "process-manager", "middleware"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
     "Typing :: Typed",
 ]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/warren-wupeng/da2"
+Repository = "https://github.com/warren-wupeng/da2"
+Issues = "https://github.com/warren-wupeng/da2/issues"
+Changelog = "https://github.com/warren-wupeng/da2/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 redis = ["redis>=5.0.0"]
