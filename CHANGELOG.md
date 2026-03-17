@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.1
+
+- `RedisEventStore` / `RedisEventStoreAsync` now support `load_all(after_position)` global event stream
+- Atomic global position assignment via Lua script with `cjson` -- each event gets a monotonically increasing position
+- Global stream stored in `{prefix}:_all` Redis list; position counter in `{prefix}:_position`
+- Per-aggregate `load()` now includes `position` in returned `StoredEvent` objects
+- 16 new Redis global stream tests (sync + async)
+
 ## 0.11.0
 
 - Add **Global Event Stream** for cross-aggregate projections (CQRS)

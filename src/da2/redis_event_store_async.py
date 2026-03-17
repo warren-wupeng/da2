@@ -32,13 +32,20 @@ from .exceptions import ConcurrencyError
 _APPEND_LUA = """
 local version_key = KEYS[1]
 local stream_key = KEYS[2]
+local global_pos_key = KEYS[3]
+local global_stream_key = KEYS[4]
 local expected = tonumber(ARGV[1])
 local current = tonumber(redis.call('GET', version_key) or 0)
 if current ~= expected then
     return error('CONCURRENCY:' .. current)
 end
 for i = 2, #ARGV do
-    redis.call('RPUSH', stream_key, ARGV[i])
+    local pos = redis.call('INCR', global_pos_key)
+    local obj = cjson.decode(ARGV[i])
+    obj['position'] = pos
+    local enriched = cjson.encode(obj)
+    redis.call('RPUSH', stream_key, enriched)
+    redis.call('RPUSH', global_stream_key, enriched)
 end
 redis.call('SET', version_key, expected + #ARGV - 1)
 return expected + #ARGV - 1
@@ -51,6 +58,10 @@ class RedisEventStoreAsync(EventStoreAsync):
     Same key layout as :class:`RedisEventStore`:
       - ``{prefix}:{aggregate_id}:version``
       - ``{prefix}:{aggregate_id}:events``
+
+    Global stream keys:
+      - ``{prefix}:_position`` -- atomic global position counter
+      - ``{prefix}:_all``      -- list of all events in global order
 
     Args:
         client: A ``redis.asyncio.Redis`` instance (must use ``decode_responses=True``).
@@ -67,6 +78,12 @@ class RedisEventStoreAsync(EventStoreAsync):
 
     def _stream_key(self, aggregate_id: Any) -> str:
         return f"{self._prefix}:{aggregate_id}:events"
+
+    def _global_position_key(self) -> str:
+        return f"{self._prefix}:_position"
+
+    def _global_stream_key(self) -> str:
+        return f"{self._prefix}:_all"
 
     async def append(
         self,
@@ -93,7 +110,12 @@ class RedisEventStoreAsync(EventStoreAsync):
 
         try:
             await self._append_script(
-                keys=[version_key, stream_key],
+                keys=[
+                    version_key,
+                    stream_key,
+                    self._global_position_key(),
+                    self._global_stream_key(),
+                ],
                 args=[expected_version] + payloads,
             )
         except Exception as exc:
@@ -107,21 +129,33 @@ class RedisEventStoreAsync(EventStoreAsync):
                 ) from exc
             raise
 
+    def _deserialize_stored(self, raw: str) -> StoredEvent:
+        obj = json.loads(raw)
+        return StoredEvent(
+            aggregate_id=obj["aggregate_id"],
+            event_type=obj["event_type"],
+            data=obj["data"],
+            version=obj["version"],
+            timestamp=obj["timestamp"],
+            position=obj.get("position", 0),
+        )
+
     async def load(self, aggregate_id: Any) -> list[StoredEvent]:
         stream_key = self._stream_key(aggregate_id)
         raw_events = await self._client.lrange(stream_key, 0, -1)
-        result: list[StoredEvent] = []
-        for raw in raw_events:
-            obj = json.loads(raw)
-            result.append(StoredEvent(
-                aggregate_id=obj["aggregate_id"],
-                event_type=obj["event_type"],
-                data=obj["data"],
-                version=obj["version"],
-                timestamp=obj["timestamp"],
-            ))
-        return result
+        return [self._deserialize_stored(raw) for raw in raw_events]
 
     async def load_since(self, aggregate_id: Any, after_version: int) -> list[StoredEvent]:
         all_events = await self.load(aggregate_id)
         return [se for se in all_events if se.version > after_version]
+
+    async def load_all(self, after_position: int = 0) -> list[StoredEvent]:
+        """Load all events across all aggregates, ordered by global position.
+
+        Uses efficient Redis LRANGE since positions map directly to list indices.
+        """
+        global_key = self._global_stream_key()
+        # Positions are 1-indexed; list is 0-indexed. after_position=N means
+        # skip first N entries (indices 0..N-1), start at index N.
+        raw_events = await self._client.lrange(global_key, after_position, -1)
+        return [self._deserialize_stored(raw) for raw in raw_events]
