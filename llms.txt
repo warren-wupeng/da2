@@ -61,6 +61,7 @@ bus.handle(CreateUser(name="Alice"))
 | RedisIdempotencyStore | `RedisIdempotencyStore` / `RedisIdempotencyStoreAsync` | Production Redis-backed idempotency store (`pip install da2[redis]`) |
 | Upcaster | `Upcaster` / `UpcasterChain` | Transform stored events from older schemas to current format |
 | Outbox | `Outbox` / `OutboxAsync` | Transactional outbox for reliable event publishing |
+| RedisOutbox | `RedisOutbox` / `RedisOutboxAsync` | Production Redis-backed outbox (`pip install da2[redis]`) |
 | OutboxRelay | `OutboxRelay` / `OutboxRelayAsync` | Polls outbox and publishes via callback (at-least-once) |
 
 ## Public API (from da2 import ...)
@@ -111,6 +112,8 @@ Outbox, InMemoryOutbox           # outbox.py
 OutboxEntry, OutboxRelay         # outbox.py
 OutboxAsync, InMemoryOutboxAsync # outbox_async.py
 OutboxRelayAsync                 # outbox_async.py
+RedisOutbox                      # redis_outbox.py (requires redis)
+RedisOutboxAsync                 # redis_outbox_async.py (requires redis)
 Container                        # container.py
 EntityNotFound, ConcurrencyError # exceptions.py
 ```

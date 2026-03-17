@@ -467,6 +467,7 @@ Key behaviors:
 - `OutboxRelay.poll_and_publish()` returns the count of entries published
 - Configurable `batch_size` limits entries per poll cycle
 - `OutboxAsync` / `OutboxRelayAsync` for async usage
+- Production: `RedisOutbox` / `RedisOutboxAsync` (requires `pip install da2[redis]`)
 
 ## Async Support
 
@@ -582,6 +583,7 @@ def log_success(event_type, message, handler_name, reason):
 |-------|-------------|
 | `Outbox` / `OutboxAsync` | Abstract outbox store for reliable event publishing |
 | `InMemoryOutbox` / `InMemoryOutboxAsync` | In-memory outbox for testing |
+| `RedisOutbox` / `RedisOutboxAsync` | Redis-backed outbox with FIFO list (requires `da2[redis]`) |
 | `OutboxEntry` | Outbox entry created from `StoredEvent` via `from_stored_event()` |
 | `OutboxRelay` / `OutboxRelayAsync` | Polls outbox and publishes via callback (at-least-once delivery) |
 

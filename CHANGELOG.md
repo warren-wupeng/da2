@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.12.1
+
+- `RedisOutbox` / `RedisOutboxAsync` for production outbox persistence (requires `da2[redis]`)
+- Redis FIFO list-based outbox: RPUSH on store, LRANGE on fetch, LPOP on mark_published
+- Full OutboxRelay integration with Redis backend
+- 17 new Redis outbox tests (10 sync + 7 async)
+
 ## 0.12.0
 
 - Add **Transactional Outbox** for reliable event publishing across bounded contexts
