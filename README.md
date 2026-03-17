@@ -2,7 +2,7 @@
 
 Python DDD and Event-Driven Architecture framework with Event Sourcing.
 
-Lightweight building blocks for Domain-Driven Design: Entity, Repository, Unit of Work, Command/Event, MessageBus, Bootstrap DI, Event Sourcing, Snapshots, Projections, Process Manager, Policy, Middleware, Idempotency, and Event Upcasting.
+Lightweight building blocks for Domain-Driven Design: Entity, Repository, Unit of Work, Command/Event, MessageBus, Bootstrap DI, Event Sourcing, Snapshots, Projections, Process Manager, Policy, Middleware, Idempotency, Event Upcasting, and Transactional Outbox.
 
 ## Install
 
@@ -439,6 +439,35 @@ order = repo.get("order-1")  # legacy events are upcasted on the fly
 
 Upcasters are applied in registration order. Set `target_event_type` to rename event types. Input data is copied (originals not mutated). Works with both sync and async repositories.
 
+## Transactional Outbox
+
+The Outbox Pattern ensures domain events are reliably published to external consumers (message brokers, other bounded contexts) without losing events on crash:
+
+```python
+from da2 import InMemoryEventStore, InMemoryOutbox, OutboxRelay
+
+store = InMemoryEventStore()
+outbox = InMemoryOutbox()
+
+# Store events in both EventStore and Outbox
+store.append("order-1", [OrderPlaced("o1", 99.0)], expected_version=0)
+outbox.store(store.load_all())
+
+# Relay polls and publishes to your message broker
+def publish(entries):
+    for e in entries:
+        send_to_kafka(e.event_type, e.data)
+
+relay = OutboxRelay(outbox, publisher=publish, batch_size=100)
+count = relay.poll_and_publish()  # publishes + marks as published
+```
+
+Key behaviors:
+- If the publisher raises, entries are NOT marked as published (at-least-once delivery)
+- `OutboxRelay.poll_and_publish()` returns the count of entries published
+- Configurable `batch_size` limits entries per poll cycle
+- `OutboxAsync` / `OutboxRelayAsync` for async usage
+
 ## Async Support
 
 Every building block has an async counterpart:
@@ -546,6 +575,15 @@ def log_success(event_type, message, handler_name, reason):
 |-------|-------------|
 | `Policy` / `PolicyAsync` | Stateless event-to-command reactor; `handle(event) -> list[Command]` |
 | `IdempotencyMiddleware` / `IdempotencyMiddlewareAsync` | Prevent duplicate command execution via cached results |
+
+### Outbox
+
+| Class | Description |
+|-------|-------------|
+| `Outbox` / `OutboxAsync` | Abstract outbox store for reliable event publishing |
+| `InMemoryOutbox` / `InMemoryOutboxAsync` | In-memory outbox for testing |
+| `OutboxEntry` | Outbox entry created from `StoredEvent` via `from_stored_event()` |
+| `OutboxRelay` / `OutboxRelayAsync` | Polls outbox and publishes via callback (at-least-once delivery) |
 
 ## Architecture
 

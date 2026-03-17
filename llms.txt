@@ -60,6 +60,8 @@ bus.handle(CreateUser(name="Alice"))
 | Idempotency | `IdempotencyMiddleware` / `IdempotencyMiddlewareAsync` | Prevent duplicate command execution via cached results |
 | RedisIdempotencyStore | `RedisIdempotencyStore` / `RedisIdempotencyStoreAsync` | Production Redis-backed idempotency store (`pip install da2[redis]`) |
 | Upcaster | `Upcaster` / `UpcasterChain` | Transform stored events from older schemas to current format |
+| Outbox | `Outbox` / `OutboxAsync` | Transactional outbox for reliable event publishing |
+| OutboxRelay | `OutboxRelay` / `OutboxRelayAsync` | Polls outbox and publishes via callback (at-least-once) |
 
 ## Public API (from da2 import ...)
 
@@ -105,6 +107,10 @@ RedisIdempotencyStore            # redis_idempotency_store.py (requires redis)
 RedisIdempotencyStoreAsync       # redis_idempotency_store_async.py (requires redis)
 Upcaster                         # upcaster.py
 UpcasterChain                    # upcaster.py
+Outbox, InMemoryOutbox           # outbox.py
+OutboxEntry, OutboxRelay         # outbox.py
+OutboxAsync, InMemoryOutboxAsync # outbox_async.py
+OutboxRelayAsync                 # outbox_async.py
 Container                        # container.py
 EntityNotFound, ConcurrencyError # exceptions.py
 ```
@@ -581,6 +587,38 @@ Key design:
 - Optional `target_event_type` renames the event type after upcasting
 - Input data is copied (originals not mutated)
 - Works with both `EventSourcedRepository` and `EventSourcedRepositoryAsync`
+
+## Transactional Outbox
+
+The Outbox Pattern ensures domain events are reliably published to external
+consumers (message brokers, other bounded contexts). Events are stored in the
+outbox alongside the aggregate write, then a relay polls and publishes them.
+
+```python
+from da2 import InMemoryEventStore, InMemoryOutbox, OutboxRelay
+
+store = InMemoryEventStore()
+outbox = InMemoryOutbox()
+
+# Store events in EventStore and Outbox
+store.append("order-1", [OrderPlaced("o1", 99.0)], expected_version=0)
+outbox.store(store.load_all())
+
+# Relay polls and publishes
+def publish(entries):
+    for e in entries:
+        send_to_broker(e.event_type, e.data)  # your publisher
+
+relay = OutboxRelay(outbox, publisher=publish)
+relay.poll_and_publish()  # publishes + marks as published
+```
+
+Key design:
+- `OutboxEntry.from_stored_event(se)` creates entries from stored events
+- `OutboxRelay.poll_and_publish()` fetches, publishes, marks as published
+- If publisher raises, entries are NOT marked (at-least-once delivery)
+- Configurable `batch_size` on the relay
+- `OutboxAsync` / `OutboxRelayAsync` for async usage
 
 ## Async Support
 

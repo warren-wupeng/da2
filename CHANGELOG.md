@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.12.0
+
+- Add **Transactional Outbox** for reliable event publishing across bounded contexts
+- `Outbox` / `OutboxAsync` abstract stores: `store()`, `fetch_unpublished()`, `mark_published()`
+- `InMemoryOutbox` / `InMemoryOutboxAsync` for testing
+- `OutboxEntry` dataclass with `from_stored_event()` factory
+- `OutboxRelay` / `OutboxRelayAsync` polls outbox and publishes via callback
+- At-least-once delivery: publisher failures leave entries unpublished for retry
+- Configurable `batch_size` for relay polling
+
 ## 0.11.1
 
 - `RedisEventStore` / `RedisEventStoreAsync` now support `load_all(after_position)` global event stream

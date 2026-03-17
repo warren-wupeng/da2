@@ -68,6 +68,8 @@ from .idempotency_async import (
     IdempotencyMiddlewareAsync,
 )
 from .upcaster import Upcaster, UpcasterChain
+from .outbox import Outbox, InMemoryOutbox, OutboxEntry, OutboxRelay
+from .outbox_async import OutboxAsync, InMemoryOutboxAsync, OutboxRelayAsync
 
 __all__ = [
     # Core
@@ -124,6 +126,14 @@ __all__ = [
     # Upcasting
     "Upcaster",
     "UpcasterChain",
+    # Outbox
+    "Outbox",
+    "InMemoryOutbox",
+    "OutboxEntry",
+    "OutboxRelay",
+    "OutboxAsync",
+    "InMemoryOutboxAsync",
+    "OutboxRelayAsync",
     # DI
     "Container",
     # Redis (requires `pip install da2[redis]`)
@@ -138,7 +148,7 @@ __all__ = [
     "ConcurrencyError",
 ]
 
-__version__ = "0.11.0"
+__version__ = "0.12.0"
 
 
 def __getattr__(name: str) -> Any:
