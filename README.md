@@ -207,6 +207,8 @@ repo = EventSourcedRepository(
 
 Atomic optimistic concurrency via Lua scripting. `RedisEventStoreAsync` for async.
 
+`RedisEventStore` / `RedisEventStoreAsync` fully support `load_all(after_position)` for the global event stream, enabling cross-aggregate projections backed by Redis.
+
 `RedisSnapshotStore` / `RedisSnapshotStoreAsync` also available for snapshot persistence.
 
 ## Projections (CQRS Read Models)
@@ -515,7 +517,7 @@ def log_success(event_type, message, handler_name, reason):
 | `EventSourcedEntity[Identity]` | Aggregate whose state is derived from events |
 | `EventStore` / `EventStoreAsync` | Append-only event persistence with optimistic concurrency |
 | `InMemoryEventStore` / `InMemoryEventStoreAsync` | Dict-backed event store for testing |
-| `RedisEventStore` / `RedisEventStoreAsync` | Redis-backed event store with Lua concurrency (requires `da2[redis]`) |
+| `RedisEventStore` / `RedisEventStoreAsync` | Redis-backed event store with Lua concurrency and `load_all()` global stream (requires `da2[redis]`) |
 | `RedisSnapshotStore` / `RedisSnapshotStoreAsync` | Redis-backed snapshot store (requires `da2[redis]`) |
 | `StoredEvent` | Immutable envelope for a persisted event |
 | `EventSourcedRepository` / `EventSourcedRepositoryAsync` | Load/save event-sourced entities |

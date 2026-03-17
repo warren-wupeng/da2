@@ -50,7 +50,7 @@ bus.handle(CreateUser(name="Alice"))
 | Container | `Container` | Simple DI container for registering and resolving dependencies |
 | EventSourcedEntity | `EventSourcedEntity[Identity]` | Aggregate whose state is derived from an event stream |
 | EventStore | `EventStore` / `EventStoreAsync` | Append-only event persistence with optimistic concurrency |
-| RedisEventStore | `RedisEventStore` / `RedisEventStoreAsync` | Production Redis-backed event store (`pip install da2[redis]`) |
+| RedisEventStore | `RedisEventStore` / `RedisEventStoreAsync` | Production Redis-backed event store with `load_all()` global stream (`pip install da2[redis]`) |
 | EventSourcedRepository | `EventSourcedRepository[T]` / `EventSourcedRepositoryAsync[T]` | Load/save event-sourced entities via EventStore |
 | Snapshot | `Snapshot` / `SnapshotStore` / `SnapshotStoreAsync` | Periodic state capture to avoid replaying all events |
 | RedisSnapshotStore | `RedisSnapshotStore` / `RedisSnapshotStoreAsync` | Production Redis-backed snapshot store (`pip install da2[redis]`) |
@@ -379,6 +379,11 @@ Key API:
 - `Projection.replay_all(event_store, registry)` -- full rebuild from global stream
 - `Projection.catch_up_all(event_store, registry)` -- incremental processing
 - `Projection.last_position` -- last processed global position
+
+All store implementations support `load_all()`: `InMemoryEventStore`, `InMemoryEventStoreAsync`,
+`RedisEventStore`, and `RedisEventStoreAsync`. Redis uses atomic Lua scripts with `cjson` to assign
+monotonically increasing positions at write time, stored in `{prefix}:_all` (global list) and
+`{prefix}:_position` (counter).
 
 ## Process Manager (Saga)
 
